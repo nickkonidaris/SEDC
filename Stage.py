@@ -4,6 +4,7 @@ import serial as ps
 import math, time
 import logging as log
 import pdb
+import os, sys
 
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 
@@ -47,7 +48,8 @@ class IFU:
         log.info("Stage is %s" % self.ID)
         
     def __open(self):
-        self.c = ps.Serial(self.portno-1, 
+        log.debug("opening port...")
+        try: self.c = ps.Serial(self.portno-1, 
             baudrate=57600, 
             bytesize=ps.EIGHTBITS, 
             parity=ps.PARITY_NONE, 
@@ -56,6 +58,10 @@ class IFU:
             xonxoff=True,
             rtscts=False,
             dsrdtr=False)
+        except ps.SerialException:
+            log.error("Could not open serial port, it may be disconnected or power off")
+            raise ps.SerialException
+            
         log.debug("Opened port %s" % self.c.name)
         log.debug(self.c)
     
@@ -271,8 +277,9 @@ class IFU:
         recv = self.__send_and_recv(self.ADDY + cmd)
         return recv.rstrip()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     
+    print "Logging to c:/sedm/logs/stage.txt"
 
     log.basicConfig(filename="C:\\sedm\\logs\\stage.txt",
         format="%(asctime)s-%(filename)s:%(lineno)i-%(levelname)s-%(message)s",
@@ -282,17 +289,12 @@ if __name__ == '__main__':
     
     server = SimpleXMLRPCServer(("localhost", 8000), logRequests=True)
 
-    
     server.register_instance(IFU())
+    
+    os.system("title Stage Control %i" % os.getpid())
     server.serve_forever()
     
-    
-#    i.home()
-#    i.moveto(5)
-    
-    #i.set_params()
 
-    
     
 # The Commands from SMC100 user manual:
 '''
