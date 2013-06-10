@@ -5,15 +5,10 @@ import math, time
 import logging as log
 import pdb
 
+from SimpleXMLRPCServer import SimpleXMLRPCServer
 
-log.basicConfig(filename="C:\\sedm\\logs\\stage.txt",
-    format="%(asctime)s-%(filename)s:%(lineno)i-%(levelname)s-%(message)s",
-    level = log.INFO)
     
-
-COM10 = 9
-
-log.info("RESTARTING")
+    
 
 class IFU:
     '''Integral field unit focus stage'''
@@ -21,6 +16,7 @@ class IFU:
     portno = -1
     c = None # Serial object to open port
     ADDY = "1"
+    cur_pos = -99
     
     error_msgs = {
             "A": "Unknown message code or floating point controller address",
@@ -37,15 +33,18 @@ class IFU:
             "M": "Execution not allowed in MOVING state",
             "@": "Ok."}
     
-    def __init__(self, portname):
+    def __init__(self):
         '''Open SMC100 com port portname'''
         
+        portname = 'com10'
         if portname[0:3] != 'com':
-            raise Exception("Portname must be in comN format")
+            return "Portname must be in comN format"
         
         self.portno = int(portname[3:])
         
         log.info("Instantiated stage on port %s" % portname)
+        self.ID = self.send_cmd_recv_msg("id?")
+        log.info("Stage is %s" % self.ID)
         
     def __open(self):
         self.c = ps.Serial(self.portno-1, 
@@ -160,11 +159,15 @@ class IFU:
     def is_configuration(self):
         ''' Is the state of the stage CONFIGURATION?'''
         return self.get_state() == '14'
-        
+    
+    def stored_position(self): return self.cur_pos
+    
     def position_query(self):
         str = self.send_cmd_recv_msg("tp?")
         log.info("Queried position %s" % str)
         cmd, pos = str.split("TP")
+        
+        self.cur_pos = float(pos)
         return float(pos)
         
     def home(self):
@@ -173,7 +176,7 @@ class IFU:
         if self.is_ready():
             log.info("Stage already homed")
             print "Staged already homed"
-            return
+            return self.position_query()
             
         self.send_cmd_recv_msg("OR")
         lvl = self.error_level()
@@ -182,16 +185,15 @@ class IFU:
         log.info(msg)
         print(msg)
 
-        if lvl != "@": return
-                
-        do_break = 0
+        if lvl != "@": return self.position_query()
+
         while not self.is_ready():
             pos = self.position_query()
             print "Current position: % 2.3f" % pos
-            if pos==0:
-                do_break += 1
+
         
         log.info("home complete")
+        return pos
 
         
     def moveto(self, target):
@@ -199,7 +201,7 @@ class IFU:
         log.info("Moving stage to %f" % target)
         
         if (target < 0) or (target> 5):
-            raise Exception("The stage cannot move to such a position")
+            return "The stage cannot move to such a position"
         
         if not self.is_ready():
             print "Stage is not ready"
@@ -220,8 +222,8 @@ class IFU:
             print "%f-%f=%f" % (pos,target,pos-target)
             pos = self.position_query()
         
-        if math.fabs(pos-target) > 0.001:
-            log.info("Stage did not achieve commanded position")
+        if math.fabs(pos-target) > 0.005:
+            log.info("Stage at %f instead of %f" % (pos, target))
             print("Stage did not achieve commanded position")
             return False
         
@@ -255,7 +257,7 @@ class IFU:
         for val in vals:
             f(val)
             if self.is_error():
-                raise Exception("Could not set param %s" % val) 
+                return "Could not set param %s" % val
 
 
         self.un_configuration()
@@ -270,7 +272,21 @@ class IFU:
         return recv.rstrip()
 
 if __name__ == '__main__':
-    i = IFU('com10')
+    
+
+    log.basicConfig(filename="C:\\sedm\\logs\\stage.txt",
+        format="%(asctime)s-%(filename)s:%(lineno)i-%(levelname)s-%(message)s",
+        level = log.INFO)
+    
+    log.info("RESTARTING")
+    
+    server = SimpleXMLRPCServer(("localhost", 8000), logRequests=True)
+
+    
+    server.register_instance(IFU())
+    server.serve_forever()
+    
+    
 #    i.home()
 #    i.moveto(5)
     
