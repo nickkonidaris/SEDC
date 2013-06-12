@@ -4,7 +4,7 @@ import serial as ps
 import math, time
 import logging as log
 import pdb
-import os, sys
+import os
 
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 
@@ -45,7 +45,10 @@ class IFU:
         
         log.info("Instantiated stage on port %s" % portname)
         self.ID = self.send_cmd_recv_msg("id?")
-        log.info("Stage is %s" % self.ID)
+        if self.ID == '':
+            log.error("Could not receive ID from stage. Comms error")
+            raise Exception("Stage does not respond. ")
+        log.info("Stage is '%s'" % self.ID)
         
     def __open(self):
         log.debug("opening port...")
@@ -211,7 +214,7 @@ class IFU:
         
         if not self.is_ready():
             print "Stage is not ready"
-            info.log("Controller not ready for move, abort.")
+            log.info("Controller not ready for move, abort.")
             return
  
         self.send_cmd_recv_msg("pa%f" % target)
@@ -285,7 +288,7 @@ if __name__ == "__main__":
         format="%(asctime)s-%(filename)s:%(lineno)i-%(levelname)s-%(message)s",
         level = log.INFO)
     
-    log.info("RESTARTING")
+    log.info("*************************RESTARTING************************")
     
     server = SimpleXMLRPCServer(("localhost", 8000), logRequests=True)
 

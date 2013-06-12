@@ -1,2 +1,2 @@
 
-import Stage
+import Stage, gui

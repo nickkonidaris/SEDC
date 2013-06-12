@@ -1,0 +1,23 @@
+import traits.api as TA
+from traits.api import Enum, CInt
+
+class IFU(TA.HasTraits):
+    
+    gain = Enum(1,2,3,
+        desc="the gain index of the camera",
+        label='gain')
+    
+    exposure = CInt(10, desc="the exposure time in s",
+        label = "Exposure")
+    
+    def capture(self):
+        
+        print "Go"
+
+
+if __name__== '__main__':
+    camera = Camera()
+    camera.configure_traits()
+    camera.capture()
+    
+    

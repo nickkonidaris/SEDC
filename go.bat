@@ -1,0 +1,1 @@
+c:\Users\sedm\Dropbox\Python-3.3.0\PCBuild\amd64\python.exe camera.py -rc
