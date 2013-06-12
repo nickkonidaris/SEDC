@@ -210,12 +210,12 @@ class IFU:
         log.info("Moving stage to %f" % target)
         
         if (target < 0) or (target> 5):
-            return "The stage cannot move to such a position"
+            return False
         
         if not self.is_ready():
             print "Stage is not ready"
             log.info("Controller not ready for move, abort.")
-            return
+            return False
  
         self.send_cmd_recv_msg("pa%f" % target)
         lvl = self.error_level()
@@ -260,20 +260,21 @@ class IFU:
         if not self.is_configuration():
             log.info("Not in configuration state")
             print("Not in configuration state")
-            return
+            return False
             
             
         for val in vals:
             f(val)
             if self.is_error():
-                return "Could not set param %s" % val
+                log.error("Could not set param %s" % val)
+                return False
 
 
         self.un_configuration()
         self.enable()
         
-        if self.is_not_ref(): return
-        print "Stage should be NOT REF but is in state: %s" % self.get_state()
+        if self.is_not_ref(): return False
+        log.info("Stage should be NOT REF but is in state: %s" % self.get_state())
 
     
     def send_cmd_recv_msg(self, cmd):

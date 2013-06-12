@@ -45,6 +45,7 @@ class PIXIS:
         ''' Setpoints is: exptime, gain, amplifier, readout speed Mhz '''
         log.info("Setting")
         cam.set(self.c["handle"], *setpoints)
+        return True
 
             
     def set_shutter(self, type):
@@ -54,6 +55,7 @@ class PIXIS:
                 'open': 3}[type]
         
         cam.set_shutter(self.c["handle"], val)
+        return True
             
     def acquire(self):
         log.info("Begin {} acquisition".format(self.name))
@@ -67,9 +69,11 @@ if __name__ == "__main__":
     if sys.argv[1] == "-rc":
         name = "rc"
         serial_num =  b"04001312"
+        port = 8001
     elif sys.argv[1] == '-ifu':
         name = "ifu"
         serial_num = b"2803120001"
+        port = 8002
         
         
     path = "c:/sedm/logs/{}.txt".format(name)
@@ -88,7 +92,7 @@ if __name__ == "__main__":
     i.set([1.0, MEDIUM_GAIN, LOW_RN_AMP, FAST_READOUT]) 
     i.set_shutter("closed")
     
-    server = SimpleXMLRPCServer(("localhost", 8001), logRequests=True)
+    server = SimpleXMLRPCServer(("127.0.0.1", port), logRequests=True)
 
     server.register_instance(i)
     
