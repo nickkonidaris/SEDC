@@ -1,11 +1,15 @@
 import subprocess as s
-import xmlrpclib as x
-import threading
+import xmlrpclib as xmlrpclib
+from multiprocessing import Process, Event
+import Queue
+from threading import Thread
 import numpy as np
 import time as t
+import math
 
-import gui, 
+import gui, stage_gui
 
+pids = []
 
 ''' SEDM python is used for running the PI detectors '''
 ''' Enthought python is used for high-level control'''
@@ -17,37 +21,60 @@ st = "C:/program files/snaketail/snaketail.exe"
 stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
 rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
 ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
+[pids.append(x) for x in [stage_pid, rc_pid, ifu_pid]]
+t.sleep(.5)
 
 #
 
 ''' Tail '''
-
+    
 snake_stage_pid = s.Popen([st, "c:/sedm/logs/stage.txt"])
 snake_rc_pid = s.Popen([st, "c:/sedm/logs/rc.txt"])
-snake_rc_pid = s.Popen([st, "c:/sedm/logs/ifu.txt"])
+snake_ifu_pid = s.Popen([st, "c:/sedm/logs/ifu.txt"])
+[pids.append(x) for x in [snake_stage_pid, snake_rc_pid, snake_ifu_pid]]
 
 
-
-stage_con = x.ServerProxy("http://127.0.0.1:8000")
-rc_con = x.ServerProxy("http://127.0.0.1:8001")
-ifu_con = x.ServerProxy("http://127.0.0.1:8002")
+stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
+ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
 
 reload(gui)
-gui.gui_connection(rc_con, 'rc')
+ifu_gui = gui.gui_connection(ifu_con, 'ifu', stage_con)
+rc_gui = gui.gui_connection(rc_con, 'rc')
 ifu_gui = gui.gui_connection(ifu_con, 'ifu', stage_con)
 
+
+reload(stage_gui)
+stage= stage_gui.stage_gui_connection(stage_con)
+
+
 def focus_loop():
-    if not stage_con.is_ready():
-        print "Stage requires homing"
-        stage_con.home()
     
+    def waitfor():
+        while not stage.is_ready:
+            print "waiting.."
+            t.sleep(1)
+    
+    print "Starting focus loop"
+    stage.comms_thread.request_focus = True
+    
+    if not stage.is_ready:
+        print "Stage not homed"
+        return    
     files = []
-    for pos in np.arange(3.2,3.9,.1):
-        if not stage_con.moveto(float(pos)):
-            print "stage hit limit"
-            return
-        print "Moved to %f" % pos
+    
+    for pos in np.arange(3.2,3.6,.025):
+        print "Moving to %f...." % pos
+        stage.target = float(pos)
+        stage._go_button_fired()
+        t.sleep(2)
+            
+        T = Thread(target=waitfor)
+        T.start()
+        T.join()
+
+        print "..Moved to %f" % pos
         ifu_gui.gain = 2
         ifu_gui.amp = 1
         ifu_gui.readout=2
@@ -58,10 +85,33 @@ def focus_loop():
             t.sleep(1)
         
         files.append(ifu_gui.filename)
+    stage.comms_thread.request_focus = False
     print files
-    return files
-
+    
 def go_focus_loop():
-    T=threading.Thread(target=focus_loop)
+    T = Thread(target=focus_loop)
     T.start()
     
+    
+
+
+def killall():
+    import ctypes
+ 
+    try:
+        for p in pids:
+            ctypes.windll.kernel32.TerminateProcess(int(p._handle), -1)
+    except NameError:
+        pass
+    
+    stage.request_abort = True
+    ifu_gui.request_abort = True
+    rc_gui.request_abort = True
+    t.sleep(1)
+    
+    try: stage_con.close()
+    except: pass
+    try: rc_con.close()
+    except: pass
+    try: ifu_con.close()
+    except: pass

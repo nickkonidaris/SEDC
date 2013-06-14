@@ -5,24 +5,46 @@ from traitsui.api import View, Item, Handler
 from threading import Thread
 
 import pyfits as pf
+import xmlrpclib
+from httplib import CannotSendRequest
 
 
 class ExposureThread(Thread):
     def run(self):
 
-        self.camera.state = 'Exposing'
-        
-        filename = self.camera.connection.acquire().data
+        try:
+            filename = self.camera.connection.acquire().data
+            self.camera.state = "Exposing"
+        except:
+            self.camera.state = "Exposure Failed due to communications problem"
+            return
+            
         self.camera.filename = filename
         self.camera.state = "Updating Fits %s" % filename
-        hdus = pf.open(filename, mode="update")
-        hdr = hdus[0].header
-        hdr.update("OBJECT",self.camera.object)
+        try:
+            hdus = pf.open(filename, mode="update")
+            hdr = hdus[0].header
+            hdr.update("OBJECT",self.camera.object)
+        except:
+            self.camera.state = "Could not append extension"
+            return
+        
         if self.camera.stage_connection is not None:
-            hdr.update("IFUFOCUS", 
-                self.camera.stage_connection.position_query(),
-                "focus stage position in mm")
-        hdus.flush()
+            try:
+                hdr.update("IFUFOCUS", 
+                    self.camera.stage_connection.position_query(),
+                    "focus stage position in mm")
+            except CannotSendRequest:
+                hdr.update("IFUFOCUS", 
+                    self.camera.stage_connection.position_query(),
+                    "focus stage position in mm")
+
+        try:
+            hdus.flush()
+        except:
+            self.camera.state = "Could not wirte extension"
+            return
+            
         self.camera.state = "Idle"
         
         
@@ -65,18 +87,19 @@ class Camera(HasTraits):
         
         
     def update_settings(self):
-        self.connection.set([self.exposure, self.gain, self.amplifier, 
-            self.readout])
+        try:
+            self.connection.set([self.exposure, self.gain, self.amplifier, 
+                self.readout])
+        except CannotSendRequest:
+            self.state = "DID NOT UPDATE. RETRY"
         
     def _go_button_fired(self):
-        self.state = "Exposing"
 
         if self.exposure_thread and self.exposure_thread.isAlive():
             print "alive"
             return
         else:
-            print "exposing"
-            self.state = "Exposing"
+            self.state = "Exposure requested"
             self.exposure_thread = ExposureThread()
             self.exposure_thread.camera = self
             self.exposure_thread.start()
@@ -100,8 +123,7 @@ def gui_connection(connection, name, stage_connection=None):
     camera.connection = connection
     handler = Window()
     
-    if stage_connection is not None:
-        camera.stage_connection = stage_connection
+    camera.stage_connection = stage_connection
     
     cam_view = View(    
             Item(name="state"),
@@ -113,10 +135,10 @@ def gui_connection(connection, name, stage_connection=None):
             Item(name="exposure"),
             Item(name="filename"),
             Item(name="go_button"),
-            handler=handler,
-            title=name)
+            title=name, width=350)
             
     camera.configure_traits(view=cam_view)
     
+    print "here"
     return camera
     

@@ -131,7 +131,7 @@ class IFU:
         print msg.get(state,"No such state?")
         log.info("%s: %s" % (state,msg.get(state, "No such state?")))
         
-        return state
+        return state, msg.get(state, "Unknown state??")
     
     
     def error_level(self):
@@ -149,25 +149,25 @@ class IFU:
     
     def is_ready(self):
         ''' Is the state of the stage READY?'''
-        state = self.get_state()
+        state, statename = self.get_state()
 
         return (state == '32') or (state == '33') or (state == '34') or (state == '35')
     
     def is_not_ref(self):
         ''' Is the state of the stage NOT REF?'''
 
-        s = self.get_state()
+        s, statename = self.get_state()
         if (s == '0A') or (s == '0B') or (s == '0C') or (s == '0D') or (s == '0E') or (s == '0F') or (s == '10') or (s == '11'):
             return True
         else: return False
             
     def is_moving(self):
         ''' Is the state of the stage MOVING?'''
-        return self.get_state() == '28'
+        return self.get_state()[0] == '28'
         
     def is_configuration(self):
         ''' Is the state of the stage CONFIGURATION?'''
-        return self.get_state() == '14'
+        return self.get_state()[0] == '14'
     
     def stored_position(self): return self.cur_pos
     
@@ -203,6 +203,28 @@ class IFU:
         
         log.info("home complete")
         return pos
+        
+        
+    def move_unblocked(self, target):
+        """ Move stage to target mm"""
+        log.info("unblocked Moving stage to %f" % target)
+        
+        if (target < 0) or (target> 5):
+            return False
+        
+        if not self.is_ready():
+            print "Stage is not ready"
+            log.info("Controller not ready for move, abort.")
+            return False
+ 
+        self.send_cmd_recv_msg("pa%f" % target)
+        lvl = self.error_level()
+        msg = self.error_msgs.get(lvl, "Unknown error code")
+        
+        log.info(msg)
+
+        
+        return True
 
         
     def moveto(self, target):
@@ -222,7 +244,6 @@ class IFU:
         msg = self.error_msgs.get(lvl, "Unknown error code")
         
         log.info(msg)
-        print "moveto: ", msg
 
         if lvl != "@": return
         
