@@ -22,15 +22,21 @@ class CommsThread(Thread):
     def communicate(self):
         com = self.stage.connection
         stg = self.stage
-        if self.request_home:
-            com.home()
-            self.request_home = False
-        if self.request_moveto:
-            com.move_unblocked(stg.target)
-            self.request_moveto = False
-        if self.request_reset:
-            com.reset()
-            self.request_reset = False
+        
+        try:
+            if self.request_home:
+                com.home()
+                self.request_home = False
+            if self.request_moveto:
+                com.move_unblocked(stg.target)
+                self.request_moveto = False
+            if self.request_reset:
+                com.reset_stage()
+                self.request_reset = False
+        except CannotSendRequest:
+            stg.state = "Could not execute, failed serial comms "
+        except:
+            stg.state = "Could not execute, failed interprocess-communications request"
 
         try:            
             stg.location = com.position_query()

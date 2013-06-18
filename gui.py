@@ -7,44 +7,63 @@ from threading import Thread
 import pyfits as pf
 import xmlrpclib
 from httplib import CannotSendRequest
+import time
 
+
+class IncrementThread(Thread):
+    stop = False
+    def run(self):
+        
+        self.camera.int_time = 0
+        
+        while not self.stop:
+            self.camera.int_time += 1
+            time.sleep(1)
 
 class ExposureThread(Thread):
     def run(self):
-
-        try:
-            filename = self.camera.connection.acquire().data
-            self.camera.state = "Exposing"
-        except:
-            self.camera.state = "Exposure Failed due to communications problem"
-            return
-            
-        self.camera.filename = filename
-        self.camera.state = "Updating Fits %s" % filename
-        try:
-            hdus = pf.open(filename, mode="update")
-            hdr = hdus[0].header
-            hdr.update("OBJECT",self.camera.object)
-        except:
-            self.camera.state = "Could not append extension"
-            return
-        
-        if self.camera.stage_connection is not None:
+        nexp = self.camera.num_exposures
+        while self.camera.num_exposures > 0:
             try:
-                hdr.update("IFUFOCUS", 
-                    self.camera.stage_connection.position_query(),
-                    "focus stage position in mm")
-            except CannotSendRequest:
-                hdr.update("IFUFOCUS", 
-                    self.camera.stage_connection.position_query(),
-                    "focus stage position in mm")
-
-        try:
-            hdus.flush()
-        except:
-            self.camera.state = "Could not wirte extension"
-            return
+                self.camera.state = "Exposing..."
+                IT = IncrementThread()
+                IT.camera = self.camera
+                IT.start()
+                filename = self.camera.connection.acquire().data
+                IT.stop = True
+            except:
+                self.camera.state = "Exposure Failed due to communications problem"
+                return
+                
+            self.camera.filename = filename
+            self.camera.state = "Updating Fits %s" % filename
+            try:
+                hdus = pf.open(filename, mode="update")
+                hdr = hdus[0].header
+                hdr.update("OBJECT",self.camera.object)
+            except:
+                self.camera.state = "Could not append extension"
+                return
             
+            if self.camera.stage_connection is not None:
+                try:
+                    hdr.update("IFUFOCUS", 
+                        self.camera.stage_connection.position_query(),
+                        "focus stage position in mm")
+                except CannotSendRequest:
+                    hdr.update("IFUFOCUS", 
+                        self.camera.stage_connection.position_query(),
+                        "focus stage position in mm")
+    
+            try:
+                hdus.flush()
+            except:
+                self.camera.state = "Could not write extension"
+                return
+            
+            self.camera.num_exposures -= 1
+        
+        self.camera.num_exposures = nexp
         self.camera.state = "Idle"
         
         
@@ -60,7 +79,11 @@ class Camera(HasTraits):
     gain = Enum(2,1,3,
         desc="the gain index of the camera",
         label='gain')
-        
+    
+    num_exposures = Int(1)
+    
+    int_time = Int(0)
+    
     readout = Enum([0.1, 2.0],
         desc="Readout speed in MHz",
         label="readout")
@@ -92,6 +115,8 @@ class Camera(HasTraits):
                 self.readout])
         except CannotSendRequest:
             self.state = "DID NOT UPDATE. RETRY"
+        except: 
+            self.state = "DID NOT UPDATE. Retry"
         
     def _go_button_fired(self):
 
@@ -133,6 +158,8 @@ def gui_connection(connection, name, stage_connection=None):
             Item(name="readout"),
             Item(name="shutter"),
             Item(name="exposure"),
+            Item(name="int_time"),
+            Item(name="num_exposures"),
             Item(name="filename"),
             Item(name="go_button"),
             title=name, width=350)
