@@ -10,6 +10,13 @@ from httplib import CannotSendRequest
 import time
 import winsound
 
+
+def play_sound(snd="SystemAsterix"):
+    
+    Play = Thread(target=winsound.PlaySound, args=(snd, 
+        winsound.SND_ALIAS))
+    Play.start()
+
 class IncrementThread(Thread):
     stop = False
     def run(self):
@@ -108,12 +115,12 @@ class ExposureThread(Thread):
             except:
                 self.camera.state = "Could not write extension"
                 return
-            winsound.PlaySound("SystemAsterix", winsound.SND_ALIAS)            
+            play_sound("SystemAsterix")            
             self.camera.num_exposures -= 1
         
         self.camera.num_exposures = nexp
         self.camera.state = "Idle"
-        winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
+        play_sound("SystemExclamation")
 
         
 class Camera(HasTraits):
