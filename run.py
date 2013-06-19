@@ -75,7 +75,7 @@ def focus_loop():
         print "Moving to %f...." % pos
         stage.target = float(pos)
         stage._go_button_fired()
-        t.sleep(2)
+        t.sleep(3)
             
         T = Thread(target=waitfor)
         T.start()
@@ -86,7 +86,7 @@ def focus_loop():
         ifu_gui.amp = 1
         ifu_gui.readout=2
         ifu_gui.shutter = 'normal'
-        ifu_gui.exposure=1
+        ifu_gui.exposure= 15
         ifu_gui._go_button_fired()
         while ifu_gui.exposure_thread.isAlive():
             t.sleep(1)
