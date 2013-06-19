@@ -46,7 +46,8 @@ class CommsThread(Thread):
                 if lhs == 'Telescope_Dec_Refr(arcsec)': T.Dec_refr = float(rhs)
                 if lhs == 'Telescope_Motion_Status': T.Status = rhs
                 if lhs == 'Telescope_Airmass': T.airmass = float(rhs)
-                if lhs == 'Object_Name': T.name = rhs.lstrip('"').rstrip('"')
+                if lhs == 'Object_Name': T.Name = rhs.lstrip('"').rstrip('"')
+
                 if lhs == 'Telescope_Equinox': T.equinox = rhs
                 if lhs == 'Object_RA': T.obRA = rhs
                 if lhs == 'Object_Dec': T.obDEC = rhs
@@ -137,3 +138,6 @@ def telescope_gui_connection():
     t.comms_thread.start()
     
     return t
+    
+if __name__ == '__main__':
+    telescope_gui_connection()
