@@ -7,7 +7,11 @@ import numpy as np
 import time as t
 import math
 
-import gui, stage_gui
+import gui, stage_gui, Telescope
+
+reload(Telescope)
+reload(gui)
+reload(stage_gui)
 
 pids = []
 
@@ -39,13 +43,16 @@ rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
 ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
 
-reload(gui)
-ifu_gui = gui.gui_connection(ifu_con, 'ifu', stage_con)
-rc_gui = gui.gui_connection(rc_con, 'rc')
-ifu_gui = gui.gui_connection(ifu_con, 'ifu', stage_con)
+tel_gui = Telescope.telescope_gui_connection()
+t.sleep(.1)
+ifu_gui = gui.gui_connection(ifu_con, 'ifu', tel_gui, stage_con )
+t.sleep(.1)
+rc_gui = gui.gui_connection(rc_con, 'rc', tel_gui)
+t.sleep(.1)
+ifu_gui = gui.gui_connection(ifu_con, 'ifu', tel_gui, stage_con)
+t.sleep(.1)
+rc_gui = gui.gui_connection(rc_con, 'rc', tel_gui)
 
-
-reload(stage_gui)
 stage= stage_gui.stage_gui_connection(stage_con)
 
 
@@ -91,8 +98,6 @@ def focus_loop():
 def go_focus_loop():
     T = Thread(target=focus_loop)
     T.start()
-    
-    
 
 
 def killall():

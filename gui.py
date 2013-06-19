@@ -8,7 +8,7 @@ import pyfits as pf
 import xmlrpclib
 from httplib import CannotSendRequest
 import time
-
+import winsound
 
 class IncrementThread(Thread):
     stop = False
@@ -44,7 +44,55 @@ class ExposureThread(Thread):
             except:
                 self.camera.state = "Could not append extension"
                 return
+                
+            for trait in self.camera.tel_stat.trait_names():
+                trait_val = self.camera.tel_stat.trait_get(trait)
+                if trait_val.has_key(trait):
+                    try: hdr.update(trait, trait_val[trait])
+                    except: print "Could not add trait %s" % trait
+                else:
+                    print "Could not find trait: %s" % trait
             
+            if self.camera.name == 'ifu':
+                if self.camera.amplifier == 1:
+                    if self.camera.readout == 0.1:
+                        if self.camera.gain == 1: gain = 3.29
+                        if self.camera.gain == 2: gain = 1.78
+                        if self.camera.gain == 3: gain = 0.89
+                    if self.camera.readout == 2:
+                        if self.camera.gain == 1: gain = 3.49
+                        if self.camera.gain == 2: gain = 1.82
+                        if self.camera.gain == 3: gain = 0.90
+                if self.camera.amplifier == 2:
+                    if self.camera.readout == 0.1:
+                        if self.camera.gain == 1: gain = 14.72
+                        if self.camera.gain == 2: gain = 7.03
+                        if self.camera.gain == 3: gain = 3.49
+                    if self.camera.readout == 2:
+                        if self.camera.gain == 1: gain = 13.92
+                        if self.camera.gain == 2: gain = 6.88
+                        if self.camera.gain == 3: gain = 3.43
+            elif self.camera.name == 'rc':
+                if self.camera.amplifier == 1:
+                    if self.camera.readout == 0.1:
+                        if self.camera.gain == 1: gain = 3.56
+                        if self.camera.gain == 2: gain = 1.77
+                        if self.camera.gain == 3: gain = 0.90
+                    if self.camera.readout == 2:
+                        if self.camera.gain == 1: gain = 3.53
+                        if self.camera.gain == 2: gain = 1.78
+                        if self.camera.gain == 3: gain = 0.88
+                if self.camera.amplifier == 2:
+                    if self.camera.readout == 0.1:
+                        if self.camera.gain == 1: gain = 14.15
+                        if self.camera.gain == 2: gain = 7.27
+                        if self.camera.gain == 3: gain = 3.79
+                    if self.camera.readout == 2:
+                        if self.camera.gain == 1: gain = 14.09
+                        if self.camera.gain == 2: gain = 7.02
+                        if self.camera.gain == 3: gain = 3.52
+                        
+            hdr.update("GAIN", gain, 'gain in e-/ADU')
             if self.camera.stage_connection is not None:
                 try:
                     hdr.update("IFUFOCUS", 
@@ -60,15 +108,17 @@ class ExposureThread(Thread):
             except:
                 self.camera.state = "Could not write extension"
                 return
-            
+            winsound.PlaySound("SystemAsterix", winsound.SND_ALIAS)            
             self.camera.num_exposures -= 1
         
         self.camera.num_exposures = nexp
         self.camera.state = "Idle"
-        
+        winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
+
         
 class Camera(HasTraits):
-    '''Exposure Control'''    
+    '''Exposure Control'''  
+    name = String("unknown")  
     object = String
     connection = None #xmlrpclib object to connect to PIXIS camera
     stage_connection = None #xmlrpclib object to connect to newport focus stage
@@ -143,12 +193,14 @@ class Window(Handler):
 
 
 
-def gui_connection(connection, name, stage_connection=None):
+def gui_connection(connection, name, tel_stat, stage_connection=None):
     camera = Camera()
+    camera.name = name
     camera.connection = connection
     handler = Window()
     
     camera.stage_connection = stage_connection
+    camera.tel_stat = tel_stat
     
     cam_view = View(    
             Item(name="state"),
@@ -166,6 +218,5 @@ def gui_connection(connection, name, stage_connection=None):
             
     camera.configure_traits(view=cam_view)
     
-    print "here"
     return camera
     
