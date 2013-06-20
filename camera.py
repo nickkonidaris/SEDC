@@ -40,6 +40,7 @@ class PIXIS:
             raise Exception("Could not find {} Camera [serial #{}]".
                 format(name,serial_num))
             
+        
     
     def set(self, setpoints):
         ''' Setpoints is: exptime, gain, amplifier, readout speed Mhz '''
@@ -47,6 +48,12 @@ class PIXIS:
         cam.set(self.c["handle"], *setpoints)
         return True
 
+    def set_orientation(self, orientation):
+        ''' orientaion is 0, 1, 2 '''
+        log.info("Setting orientation to %i" % orientation)
+        cam.orientation(self.c["handle"], orientation)
+        log.info("Orientation set")
+        return True
             
     def set_shutter(self, type):
         log.info("{} Shutter setting to {} mode".format(self.name, type))

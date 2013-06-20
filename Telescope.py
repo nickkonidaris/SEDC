@@ -63,8 +63,9 @@ class CommsThread(Thread):
                 if lhs == 'UTSunrise': T.UTsnrs = rhs 
 
             time.sleep(0.7)
-        
-        
+
+
+
 
 class Telescope(HasTraits):
     comms_thread = Instance(CommsThread)
@@ -105,12 +106,77 @@ class Telescope(HasTraits):
     UTSunset = String()
     UTsnrs = String()
     
+    
     def __init__(self):
         
         self.telnet = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
         self.comms_thread = CommsThread()
         self.comms_thread.telescope = self
 
+
+class Weather(HasTraits):
+    UTC = String()
+    Windspeed_Avg_Threshold = Float()
+    Gust_Speed_Threshold = Float()
+    Gust_Hold_Time = Float()
+    Outside_DewPt_Threshold = Float()
+    Inside_DewPt_Threshold = Float()
+    Wetness_Threshold = Float()
+    Wind_Dir_Current = Float()
+    Windspeed_Current = Float()
+    Windspeed_Average = Float()
+    Outside_Air_Temp = Float()
+    Outside_Rel_Hum = Float()
+    Outside_DewPt = Float()
+    Inside_Air_Temp = Float()
+    Inside_Rel_Hum = Float()
+    Inside_DewPt = Float()
+    Mirror_Temp = Float()
+    Floor_Temp = Float()
+    Bot_Tube_Temp = Float()
+    Mid_Tube_Temp = Float()
+    Top_Tube_Temp = Float()
+    Top_Air_Temp = Float()
+    Primary_Cell_Temp = Float()
+    Secondary_Cell_Temp = Float()
+    Wetness = Int()
+    Weather_Status = String()
+    
+    def __init__(self):
+        
+        self.telnet = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+        self.comms_thread = WeatherCommsThread()
+        self.comms_thread.weather = self
+    
+        
+class WeatherCommsThread(Thread):
+    abort = False
+
+        
+    def run(self):       
+        W = self.weather 
+        while not self.abort:
+            W.telnet.write("?WEATHER\n")
+            while True:
+
+                r= W.telnet.read_until("\n", .1)
+
+                if r == "":
+                    break               
+
+                try:lhs,rhs = r.rstrip().split("=")
+                except: continue
+                
+                type_fun = type(getattr(W, lhs))
+                setattr(W, lhs, type_fun(rhs))
+            time.sleep(1)
+            
+def weather_gui_connection():
+    w = Weather()
+    w.configure_traits()
+    w.comms_thread.start()
+    
+    return w
 
 def telescope_gui_connection():
     
@@ -141,3 +207,4 @@ def telescope_gui_connection():
     
 if __name__ == '__main__':
     telescope_gui_connection()
+    weather_gui_connection()

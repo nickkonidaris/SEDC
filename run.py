@@ -7,11 +7,14 @@ import numpy as np
 import time as t
 import math
 
+import Focus
+
 import gui, stage_gui, Telescope
 
 reload(Telescope)
 reload(gui)
 reload(stage_gui)
+reload(Focus)
 
 pids = []
 
@@ -120,3 +123,8 @@ def killall():
     except: pass
     try: ifu_con.close()
     except: pass
+
+
+
+print "Open up two instances of DS9 and get xpa->information->xpa_method"
+print "Then set: rc_gui.xpa_class = c6ca7de8:4412"

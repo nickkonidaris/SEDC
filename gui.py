@@ -10,6 +10,32 @@ from httplib import CannotSendRequest
 import time
 import winsound
 
+import os
+from subprocess import check_output
+
+def ra_to_deg(ra):
+    h,m,s = map(float,ra.split(":"))
+    
+    return 15 * h + 0.25*m + 0.0042*s
+
+def dec_to_deg(dec):
+    d,m,s = map(float,dec.split(":"))
+    
+    return d + m/60. + s/3600.
+    
+    
+
+def ds9_image(xpa_class,  filename):
+    
+    if xpa_class is None:
+        print "Can not autodisplay iamge"        
+        return
+        
+    check_output("c:\\ds9\\xpaset -p %s file %s" % (xpa_class, filename), shell=True)
+    check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
+    check_output("C:\\ds9\\xpaset -p %s regions load c:/sw/sedm/ds9.reg" % (xpa_class), shell=True)
+    check_output("c:\\ds9\\xpaset -p %s cmap invert yes" % (xpa_class), shell=True)
+
 
 def play_sound(snd="SystemAsterix"):
     
@@ -25,6 +51,12 @@ class IncrementThread(Thread):
         
         while not self.stop:
             self.camera.int_time += 1
+            
+            if self.camera.readout == 2: overhead = 6
+            else: overhead = 50
+            
+            if self.camera.int_time > (self.camera.exposure+overhead):
+                play_sound("SystemAsterisk")
             time.sleep(1)
 
 class ExposureThread(Thread):
@@ -110,17 +142,33 @@ class ExposureThread(Thread):
                         self.camera.stage_connection.position_query(),
                         "focus stage position in mm")
     
+    
+            hdr.update("CHANNEL", self.camera.name, "Instrument channel")
+            
+            if self.camera.name == 'rc':
+                hdr.update("CRPIX1", 1293, "Center pixel position")
+                hdr.update("CRPIX2", 1280, "")
+                hdr.update("CDELT1", -0.00010944, "0.394 as")
+                hdr.update("CDELT2" ,-0.00010944, "0.394 as")
+                hdr.update("CTYPE1", "RA---TAN")
+                hdr.update("CTYPE2", "DEC--TAN")
+                hdr.update("CRVAL1", ra_to_deg(hdr["ra"]), "from tcs")
+                hdr.update("CRVAL2", dec_to_deg(hdr["dec"]), "from tcs")
+
+            
             try:
                 hdus.flush()
             except:
                 self.camera.state = "Could not write extension"
                 return
-            play_sound("SystemAsterix")            
+            play_sound("SystemAsterix")    
+            
+            ds9_image(self.camera.xpa_class,  filename)
             self.camera.num_exposures -= 1
         
         self.camera.num_exposures = nexp
         self.camera.state = "Idle"
-        play_sound("SystemExclamation")
+        if nexp > 1: play_sound("SystemExclamation")
 
         
 class Camera(HasTraits):
@@ -129,6 +177,8 @@ class Camera(HasTraits):
     object = String
     connection = None #xmlrpclib object to connect to PIXIS camera
     stage_connection = None #xmlrpclib object to connect to newport focus stage
+    
+    xpa_class = None
     
     state = String("Idle")
     filename = String("")
@@ -149,7 +199,7 @@ class Camera(HasTraits):
         desc="the amplifier index",
         label = 'amp')
     
-    shutter = Enum('closed', 'normal', 'open')
+    shutter = Enum('normal', 'closed')
     
     exposure = Float(10, desc="the exposure time in s",
         label = "Exposure")
@@ -224,6 +274,10 @@ def gui_connection(connection, name, tel_stat, stage_connection=None):
             title=name, width=350)
             
     camera.configure_traits(view=cam_view)
+
+    time.sleep(1)
+    camera._shutter_changed()
+    camera.update_settings()
     
     return camera
     
