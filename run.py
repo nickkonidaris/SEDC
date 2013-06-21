@@ -62,6 +62,7 @@ stage= stage_gui.stage_gui_connection(stage_con)
 def focus_loop():
     
     def waitfor():
+        t.sleep(3)
         while not stage.is_ready:
             print "waiting.."
             t.sleep(1)
@@ -74,11 +75,11 @@ def focus_loop():
         return    
     files = []
     
-    for pos in np.arange(3.2,3.6,.025):
+    for pos in np.arange(3.0,3.6,.025):
         print "Moving to %f...." % pos
         stage.target = float(pos)
         stage._go_button_fired()
-        t.sleep(3)
+        t.sleep(.2)
             
         T = Thread(target=waitfor)
         T.start()
@@ -89,7 +90,7 @@ def focus_loop():
         ifu_gui.amp = 1
         ifu_gui.readout=2
         ifu_gui.shutter = 'normal'
-        ifu_gui.exposure= 15
+        ifu_gui.exposure= 30
         ifu_gui._go_button_fired()
         while ifu_gui.exposure_thread.isAlive():
             t.sleep(1)

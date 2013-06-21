@@ -83,7 +83,8 @@ class ExposureThread(Thread):
             except:
                 self.camera.state = "Could not append extension"
                 return
-                
+            
+
             for trait in self.camera.tel_stat.trait_names():
                 trait_val = self.camera.tel_stat.trait_get(trait)
                 if trait_val.has_key(trait):
@@ -155,9 +156,9 @@ class ExposureThread(Thread):
                 hdr.update("CRVAL1", ra_to_deg(hdr["ra"]), "from tcs")
                 hdr.update("CRVAL2", dec_to_deg(hdr["dec"]), "from tcs")
 
-            
+
             try:
-                hdus.flush()
+                hdus.flush(verbose=True)
             except:
                 self.camera.state = "Could not write extension"
                 return
@@ -165,7 +166,6 @@ class ExposureThread(Thread):
             
             ds9_image(self.camera.xpa_class,  filename)
             self.camera.num_exposures -= 1
-        
         self.camera.num_exposures = nexp
         self.camera.state = "Idle"
         if nexp > 1: play_sound("SystemExclamation")
