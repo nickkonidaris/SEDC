@@ -28,20 +28,26 @@ def dec_to_deg(dec):
 def ds9_image(xpa_class,  filename):
     
     if xpa_class is None:
-        print "Can not autodisplay iamge"        
+        print "Can not autodisplay image"        
         return
         
-    check_output("c:\\ds9\\xpaset -p %s file %s" % (xpa_class, filename), shell=True)
-    check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
-    check_output("C:\\ds9\\xpaset -p %s regions load c:/sw/sedm/ds9.reg" % (xpa_class), shell=True)
-    check_output("c:\\ds9\\xpaset -p %s cmap invert yes" % (xpa_class), shell=True)
-
+    try:
+        check_output("c:\\ds9\\xpaset -p %s file %s" % (xpa_class, filename), shell=True)
+        check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
+        check_output("C:\\ds9\\xpaset -p %s regions load c:/sw/sedm/ds9.reg" % (xpa_class), shell=True)
+    #check_output("c:\\ds9\\xpaset -p %s cmap invert yes" % (xpa_class), shell=True)
+    except:
+        #FIXME
+        pass
 
 def play_sound(snd="SystemAsterix"):
     
-    Play = Thread(target=winsound.PlaySound, args=(snd, 
-        winsound.SND_ALIAS))
-    Play.start()
+    try:
+        Play = Thread(target=winsound.PlaySound, args=(snd, 
+            winsound.SND_ALIAS))
+        Play.start()
+    except:
+        pass
 
 class IncrementThread(Thread):
     stop = False
@@ -89,9 +95,9 @@ class ExposureThread(Thread):
                 trait_val = self.camera.tel_stat.trait_get(trait)
                 if trait_val.has_key(trait):
                     try: hdr.update(trait, trait_val[trait])
-                    except: print "Could not add trait %s" % trait
+                    except: pass
                 else:
-                    print "Could not find trait: %s" % trait
+                    pass
             
             if self.camera.name == 'ifu':
                 if self.camera.amplifier == 1:
@@ -158,7 +164,7 @@ class ExposureThread(Thread):
 
 
             try:
-                hdus.flush(verbose=True)
+                hdus.flush()
             except:
                 self.camera.state = "Could not write extension"
                 return
@@ -166,7 +172,7 @@ class ExposureThread(Thread):
             
             ds9_image(self.camera.xpa_class,  filename)
             self.camera.num_exposures -= 1
-        self.camera.num_exposures = nexp
+        self.camera.num_exposures = 1
         self.camera.state = "Idle"
         if nexp > 1: play_sound("SystemExclamation")
 
@@ -258,6 +264,8 @@ def gui_connection(connection, name, tel_stat, stage_connection=None):
     
     camera.stage_connection = stage_connection
     camera.tel_stat = tel_stat
+    
+    if name == 'rc': camera.readout = 2
     
     cam_view = View(    
             Item(name="state"),

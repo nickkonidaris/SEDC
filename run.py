@@ -90,7 +90,7 @@ def focus_loop():
         ifu_gui.amp = 1
         ifu_gui.readout=2
         ifu_gui.shutter = 'normal'
-        ifu_gui.exposure= 30
+        ifu_gui.exposure= 15
         ifu_gui._go_button_fired()
         while ifu_gui.exposure_thread.isAlive():
             t.sleep(1)
@@ -128,4 +128,5 @@ def killall():
 
 
 print "Open up two instances of DS9 and get xpa->information->xpa_method"
-print "Then set: rc_gui.xpa_class = c6ca7de8:4412"
+print "Then set: rc_gui.xpa_class = METHOD NAME"
+print "Then set: ifu_gui.xpa_class = METHOD NAME"
