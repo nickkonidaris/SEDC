@@ -111,13 +111,16 @@ def killall():
  
     try:
         for p in pids:
-            ctypes.windll.kernel32.TerminateProcess(int(p._handle), -1)
+            try: ctypes.windll.kernel32.TerminateProcess(int(p._handle), -1)
+            except: pass
     except NameError:
         pass
     
-    stage.request_abort = True
-    ifu_gui.request_abort = True
-    rc_gui.request_abort = True
+    try:
+        stage.request_abort = True
+        ifu_gui.request_abort = True
+        rc_gui.request_abort = True
+    except: pass
     t.sleep(1)
     
     try: stage_con.close()
