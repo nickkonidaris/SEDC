@@ -5,12 +5,10 @@ from traitsui.api import View, Item, Handler
 from threading import Thread
 
 import pyfits as pf
-import xmlrpclib
 from httplib import CannotSendRequest
 import time
 import winsound
 
-import os
 from subprocess import check_output
 
 def ra_to_deg(ra):
@@ -35,6 +33,8 @@ def ds9_image(xpa_class,  filename):
         check_output("c:\\ds9\\xpaset -p %s file %s" % (xpa_class, filename), shell=True)
         check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
         check_output("C:\\ds9\\xpaset -p %s regions load c:/sw/sedm/ds9.reg" % (xpa_class), shell=True)
+        check_output("C:\\ds9\\xpaset -p %s zoom to fit" % (xpa_class), shell=True)
+
     #check_output("c:\\ds9\\xpaset -p %s cmap invert yes" % (xpa_class), shell=True)
     except:
         #FIXME
@@ -161,7 +161,16 @@ class ExposureThread(Thread):
                 hdr.update("CTYPE2", "DEC--TAN")
                 hdr.update("CRVAL1", ra_to_deg(hdr["ra"]), "from tcs")
                 hdr.update("CRVAL2", dec_to_deg(hdr["dec"]), "from tcs")
-
+            elif self.camera.name == 'ifu':
+                hdr.update("CRPIX1", 1075, "Center pixel position")
+                hdr.update("CRPIX2", 974, "Center pixel position")
+                hdr.update("CDELT1", -0.0000025767, "0.00093 as")
+                hdr.update("CDELT2", -0.0000025767, "0.00093 as")
+                hdr.update("CTYPE1", "RA---TAN")
+                hdr.update("CTYPE2", "DEC--TAN")
+                as120 = 0.03333
+                hdr.update("CRVAL1", ra_to_deg(hdr["ra"]) - as120, "from tcs")
+                hdr.update("CRVAL2", dec_to_deg(hdr["dec"]) - as120, "from tcs")
 
             try:
                 hdus.flush()
@@ -260,7 +269,6 @@ def gui_connection(connection, name, tel_stat, stage_connection=None):
     camera = Camera()
     camera.name = name
     camera.connection = connection
-    handler = Window()
     
     camera.stage_connection = stage_connection
     camera.tel_stat = tel_stat

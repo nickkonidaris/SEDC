@@ -25,7 +25,8 @@ pids = []
 epy = "c:/python27/python.exe"
 sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
 st = "C:/program files/snaketail/snaketail.exe"
-stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
+#stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
+stage_pid = 0
 rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
 ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
 [pids.append(x) for x in [stage_pid, rc_pid, ifu_pid]]
@@ -41,7 +42,8 @@ snake_ifu_pid = s.Popen([st, "c:/sedm/logs/ifu.txt"])
 [pids.append(x) for x in [snake_stage_pid, snake_rc_pid, snake_ifu_pid]]
 
 
-stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+#stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+stage_con = None
 rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
 ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
@@ -56,7 +58,7 @@ ifu_gui = gui.gui_connection(ifu_con, 'ifu', tel_gui, stage_con)
 t.sleep(.1)
 rc_gui = gui.gui_connection(rc_con, 'rc', tel_gui)
 
-stage= stage_gui.stage_gui_connection(stage_con)
+#stage= stage_gui.stage_gui_connection(stage_con)
 
 
 def focus_loop():
