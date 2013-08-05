@@ -64,7 +64,7 @@ class CommsThread(Thread):
         
         while self.request_abort == False:
             self.process()
-            time.sleep(4)
+            time.sleep(20)
         
         
 class Stage(HasTraits):

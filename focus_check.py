@@ -26,7 +26,7 @@ def analyize_files(files):
         s3 = np.sort(data[1024:,:1024].flatten())
         s4 = np.sort(data[1024:,1024:].flatten())
         
-        a,b = np.floor(len(sort)*.03), np.ceil(len(sort)*.97)
+        a,b = np.floor(len(sort)*.03), np.ceil(len(sort)*.9999)
         
         
         

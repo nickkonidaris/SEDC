@@ -4,9 +4,13 @@ from traitsui.api import View, Item, Handler
 
 from threading import Thread
 
+import numpy as np
 import pyfits as pf
+import os
+import sys
 from httplib import CannotSendRequest
 import time
+import tempfile
 import winsound
 
 from subprocess import check_output
@@ -83,11 +87,11 @@ class ExposureThread(Thread):
             self.camera.filename = filename
             self.camera.state = "Updating Fits %s" % filename
             try:
-                hdus = pf.open(filename, mode="update")
+                hdus = pf.open(filename)
                 hdr = hdus[0].header
                 hdr.update("OBJECT",self.camera.object)
             except:
-                self.camera.state = "Could not append extension"
+                self.camera.state = "Could not open raw fits"
                 return
             
 
@@ -172,11 +176,33 @@ class ExposureThread(Thread):
                 hdr.update("CRVAL1", ra_to_deg(hdr["ra"]) - as120, "from tcs")
                 hdr.update("CRVAL2", dec_to_deg(hdr["dec"]) - as120, "from tcs")
 
+            new_hdu = pf.PrimaryHDU(np.uint16(hdus[0].data), header=hdr)
+            hdus.close()
+
+            tempname = "c:/users/sedm/appdata/local/temp/sedm_temp.fits"
+            origname = filename
+
+            
+            try: os.remove(tempname)
+            except WindowsError: pass
+            
             try:
-                hdus.flush()
-            except:
-                self.camera.state = "Could not write extension"
+                os.rename(origname, tempname)
+            except Exception as e:
+                print e
+                self.camera.state = "Rename %s to %s failed" % (filename, tempname)
+                play_sound("SystemExclamation")
                 return
+            
+            try:
+                new_hdu.writeto(filename)
+            except:
+                os.rename(tempname, filename)
+                self.camera.state = "Could not write extension [2]"
+                play_sound("SystemExclamation")
+                return
+                
+
             play_sound("SystemAsterix")    
             
             ds9_image(self.camera.xpa_class,  filename)
