@@ -33,15 +33,32 @@ def ds9_image(xpa_class,  filename):
         print "Can not autodisplay image"        
         return
         
+    retains = ["scale mode", "scale", "cmap",  "zoom", "pan to"]
+    vals = []
     try:
-        check_output("c:\\ds9\\xpaset -p %s file %s" % (xpa_class, filename), shell=True)
-        check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
-        check_output("C:\\ds9\\xpaset -p %s regions load c:/sw/sedm/ds9.reg" % (xpa_class), shell=True)
-        check_output("C:\\ds9\\xpaset -p %s zoom to fit" % (xpa_class), shell=True)
 
+            check_output("c:\\ds9\\xpaset -p %s frame 1" % (xpa_class), shell=True)
+            for retain in retains:
+                value = check_output("c:\\ds9\\xpaget %s %s" % (xpa_class, retain), shell=True)
+                vals.append((retain, value))
+                
+
+            check_output("c:\\ds9\\xpaset -p %s file %s" % (xpa_class, filename), shell=True)
+            check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
+            
+            for key, val in vals:
+                print key,val
+                check_output("c:\\ds9\\xpaset -p %s %s %s" % (xpa_class, key, val), shell=True)
+            
+            if filename.find("rc") != -1:
+                check_output("C:\\ds9\\xpaset -p %s regions load c:/sw/sedm/ds9.reg" % (xpa_class), shell=True)
+
+    
     #check_output("c:\\ds9\\xpaset -p %s cmap invert yes" % (xpa_class), shell=True)
-    except:
+    except Exception as e:
         #FIXME
+        print "Skipping exception:"
+        print e
         pass
 
 def play_sound(snd="SystemAsterix"):
