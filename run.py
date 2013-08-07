@@ -58,6 +58,9 @@ t.sleep(.1)
 ifu_gui = gui.gui_connection(ifu_con, 'ifu', tel_gui, stage_con)
 t.sleep(.1)
 rc_gui = gui.gui_connection(rc_con, 'rc', tel_gui)
+target_gui = Telescope.target_gui_connection()
+
+
 
 #stage= stage_gui.stage_gui_connection(stage_con)
 

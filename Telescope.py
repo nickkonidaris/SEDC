@@ -1,16 +1,212 @@
 
 # P60 Telescope Status
 from traits.api import *
-from traitsui.api import View, Item, Handler
-
 from threading import Thread
 import telnetlib
+import re
 import time
+import numpy as np
+
+from traitsui.api import View, Item, Handler, Action, TabularEditor, Group
+from traitsui.menu import ApplyButton
+from enthought.traits.ui.tabular_adapter \
+    import TabularAdapter
+ 
+ 
+ 
+class Target(HasTraits):
+     name = Str
+     ra = Str
+     dec = Str
+     dra = Float
+     ddec = Float
+ 
+class TargetAdapter( TabularAdapter ):
+
+    columns = [ ( 'Name',    'name' ), 
+                ( 'RA',     'ra' ), 
+                ( 'Dec', 'dec' ),
+                ( 'dRA',  'dra' ),
+                ( 'dDec', 'ddec') ]
+                
+    font                      = 'Courier 12'
+    
+
+def sd2g(s):
+    sign = 1.0
+    if s[0] == '-': sign = -1.0
+    
+    h,m,s = map(float, s.split(" "))
+    
+    
+    return sign * float(sign*h + m/60. + s/3600.)
+
+
+gxn_res = {0: "Success", -1: "Unknown command", -2: "Bad parameter", 
+    -3: "Aborted", -6: "Do not have control"}
+
+
+class TargetList(HasTraits):
+    
+    selected_row  = String()
+    counter = Int(0)
+    
+    data = List( Target )
+    status = String()
+    send_data = Button('Send Coordinates')
+    go = Button('Go')
+    take_control = Button('Take Control')
+    reload_data = Button("Reload Data from s:\\master.lst")
+    tabular_editor = TabularEditor(
+        selected_row='selected_row',
+        adapter    = TargetAdapter(),
+        operations = [ ]    )
+
+        
+    def _send_data_fired(self):
+
+        
+        try: r = np.int(self.selected_row)       
+        except ValueError: return
+        
+        self.status ="-"
+        
+        targ =  self.data[r]
+        name = targ.name
+        ra = targ.ra
+        dec = targ.dec
+        dra = targ.dra
+        ddec = targ.ddec
+        
+                        
+        try: 
+            T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+
+            T.write("coords %f %f 2000.0 0 0\n" % (sd2g(ra), sd2g(dec)))
+            r = T.read_until("\n", .1)
+
+        except Exception as e:
+            print e
+            self.status = "Bad connection"
+            return
+        
+        try: res = int(r.rstrip())
+        except: return
+        
+        if res  == 0:
+            self.status = "%i: %s : [%s %s]" % (self.counter, gxn_res[res], ra, dec)
+        else:
+            self.status = "%i: %s" % (self.counter, gxn_res[res])
+        
+        self.counter += 1
+   
+    def _take_control_fired(self):
+        self.status = '-'
+        
+        try: 
+            T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+
+            T.write("takecontrol\n")
+            r = T.read_until("\n", .1)
+
+        except Exception as e:
+            print e
+            self.status = "Bad connection"
+            return
+            
+        try: res = int(r.rstrip())
+        except: return
+        
+        if res  == 0:
+            self.status = "%i: %s: takecontrol excuted" % (self.counter, gxn_res[res])
+        else:
+            self.status = "%i: %s: takecontrol failed" % (self.counter, gxn_res[res])
+
+        
+        self.counter += 1
+        
+    def _go_fired(self):
+        self.status = '-'
+        
+        try: 
+            T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+
+            T.write("gopos\n")
+            r = T.read_until("\n", .1)
+
+        except Exception as e:
+            print e
+            self.status = "Bad connection"
+            return
+            
+        try: res = int(r.rstrip())
+        except: return
+        
+        if res  == 0:
+            self.status = "%i: %s: gopos excuted" % (self.counter, gxn_res[res])
+        else:
+            self.status = "%i: %s: gopos failed" % (self.counter, gxn_res[res])
+
+        
+        self.counter += 1
+
+    def _reload_data_fired(self):
+        try:
+            f = open("s:\\master.lst")
+            lines = f.readlines()
+            f.close()
+        except Exception as e:
+            print e
+            self.status = "could not read s:\\master.lst"
+            return
+        
+        data = []
+        for line in lines:
+            print line
+            line = line.lstrip()
+            if len(line) == 0: continue
+            if line[0] == '#': continue
+            line = re.sub(' +', ' ', line)
+            cmt = line.find("#")
+            
+            sp = line[0:cmt].split(" ")
+
+            name = sp[0]
+            ra = " ".join(sp[1:4])
+            dec = " ".join(sp[4:7])
+            
+            data.append(
+            Target(name = " %s " % name,
+                ra = ra,
+                dec = dec,
+                dra = 0,
+                ddec = 0)
+            )
+        self.data = data
+        self.status = "Processed %i lines" % len(lines)
+
+
+    view = View(
+        Group(
+            Item('data', editor = tabular_editor),
+            Item('status'),
+            Item('send_data'),
+            Item('go'),
+            Item('reload_data'),
+            Item("take_control"),
+            show_labels        = False,
+        ),
+        title     = 'Array Viewer',
+        width     = 0.4,
+        height    = 0.6,
+        resizable = True
+    )
+
 
 class CommsThread(Thread):
     abort = False
 
-        
+    
     def run(self):       
         T = self.telescope 
         while not self.abort:
@@ -178,6 +374,13 @@ def weather_gui_connection():
     
     return w
 
+def target_gui_connection():
+    tl = TargetList(data = [])
+ 
+    tl.configure_traits()
+    return tl
+
+
 def telescope_gui_connection():
     
     t = Telescope()
@@ -204,7 +407,15 @@ def telescope_gui_connection():
     t.comms_thread.start()
     
     return t
+
     
 if __name__ == '__main__':
+ 
+    data = []
+
+ 
+    demo = TargetList(data = data)
+ 
     telescope_gui_connection()
     weather_gui_connection()
+    demo.configure_traits()

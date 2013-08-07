@@ -47,7 +47,6 @@ def ds9_image(xpa_class,  filename):
             check_output("c:\\ds9\\xpaset -p %s frame match wcs" % (xpa_class), shell=True)
             
             for key, val in vals:
-                print key,val
                 check_output("c:\\ds9\\xpaset -p %s %s %s" % (xpa_class, key, val), shell=True)
             
             if filename.find("rc") != -1:
