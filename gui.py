@@ -2,7 +2,7 @@
 from traits.api import *
 from traitsui.api import View, Item, Handler
 
-from threading import Thread
+from threading import Thread, Timer
 
 import numpy as np
 import pyfits as pf
@@ -171,6 +171,7 @@ class ExposureThread(Thread):
     
     
             hdr.update("CHANNEL", self.camera.name, "Instrument channel")
+            hdr.update("TNAME", self.camera.target_name, "Target name")
             
             if self.camera.name == 'rc':
                 hdr.update("CRPIX1", 1293, "Center pixel position")
@@ -231,11 +232,10 @@ class ExposureThread(Thread):
 class Camera(HasTraits):
     '''Exposure Control'''  
     name = String("unknown")  
+    target_name = String()
     object = String
     connection = None #xmlrpclib object to connect to PIXIS camera
     stage_connection = None #xmlrpclib object to connect to newport focus stage
-    
-    xpa_class = None
     
     state = String("Idle")
     filename = String("")
@@ -257,6 +257,8 @@ class Camera(HasTraits):
         label = 'amp')
     
     shutter = Enum('normal', 'closed')
+    
+    xpa_class = String()
     
     exposure = Float(10, desc="the exposure time in s",
         label = "Exposure")
@@ -284,11 +286,20 @@ class Camera(HasTraits):
         
     def _go_button_fired(self):
 
+            
+        
         if self.exposure_thread and self.exposure_thread.isAlive():
             print "alive"
             return
         else:
             self.state = "Exposure requested"
+            try:
+
+                self.target_name = self.target_gui.name
+
+            except Exception as e:
+                pass
+
             self.exposure_thread = ExposureThread()
             self.exposure_thread.camera = self
             self.exposure_thread.start()
@@ -307,21 +318,22 @@ class Window(Handler):
 
 
 
-def gui_connection(connection, name, tel_stat, stage_connection=None):
+def gui_connection(connection, name, tel_stat, stage_connection=None, target_gui=None):
     camera = Camera()
     camera.name = name
     camera.connection = connection
     
     camera.stage_connection = stage_connection
-    camera.tel_stat = tel_stat
+    camera.target_gui = target_gui
+    camera.tel_stat = tel_stat    
     
     if name == 'rc': camera.readout = 2
     
     cam_view = View(    
             Item(name="state"),
             Item(name="object"),
-            Item(name="gain"),
-            Item(name="amplifier"),
+            #Item(name="gain"),
+            #Item(name="amplifier"),
             Item(name="readout"),
             Item(name="shutter"),
             Item(name="exposure"),
@@ -329,13 +341,14 @@ def gui_connection(connection, name, tel_stat, stage_connection=None):
             Item(name="num_exposures"),
             Item(name="filename"),
             Item(name="go_button"),
-            title=name, width=350)
-            
-    camera.configure_traits(view=cam_view)
-
-    time.sleep(1)
-    camera._shutter_changed()
-    camera.update_settings()
+            title=name, width=350, kind='live')
+                    
+    #Thread(target=camera.configure_traits, 
+    #    kwargs={'view': cam_view}).run()
     
-    return camera
+
+    #Timer(1.0, camera._shutter_changed).start()
+    #Timer(3.0, camera.update_settings).start()
+    
+    return camera, cam_view
     

@@ -50,7 +50,8 @@ class TargetList(HasTraits):
     
     selected_row  = String()
     counter = Int(0)
-    
+    name = String
+    cmd = String(enter_set=True, auto_set=False)
     data = List( Target )
     status = String()
     send_data = Button('Send Coordinates')
@@ -62,6 +63,35 @@ class TargetList(HasTraits):
         adapter    = TargetAdapter(),
         operations = [ ]    )
 
+    def _cmd_changed(self):
+
+        try: 
+            T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+            T.write("takecontrol\n")
+            T.read_until("\n", .1)
+            T.write(self.cmd + "\n")
+            r = T.read_until("\n", .1)
+            T.write("givecontrol\n")
+
+        except Exception as e:
+            print e
+            self.status = "Bad connection"
+            return      
+            
+                      
+        try: res = int(r.rstrip())
+        except: return
+        
+        if res  == 0:
+            self.status = "%i: %s: %s excuted" % (self.counter, self.cmd, gxn_res[res])
+        else:
+            self.status = "%i: %s: %s failed" % (self.counter, self.cmd, gxn_res[res])
+
+        self.cmd = ""
+        self.counter += 1
+
+  
+            
         
     def _send_data_fired(self):
 
@@ -95,6 +125,7 @@ class TargetList(HasTraits):
         
         if res  == 0:
             self.status = "%i: %s : [%s %s]" % (self.counter, gxn_res[res], ra, dec)
+            self.name = name
         else:
             self.status = "%i: %s" % (self.counter, gxn_res[res])
         
@@ -133,6 +164,7 @@ class TargetList(HasTraits):
 
             T.write("gopos\n")
             r = T.read_until("\n", .1)
+            T.write("givecontrol\n")
 
         except Exception as e:
             print e
@@ -151,55 +183,63 @@ class TargetList(HasTraits):
         self.counter += 1
 
     def _reload_data_fired(self):
-        try:
-            f = open("s:\\master.lst")
-            lines = f.readlines()
-            f.close()
-        except Exception as e:
-            print e
-            self.status = "could not read s:\\master.lst"
-            return
+
+        def helper():
+            try:
+                f = open("s:\\master.lst")
+                lines = f.readlines()
+                f.close()
+            except Exception as e:
+                print e
+                self.status = "could not read s:\\master.lst"
+                return
+            
+            data = []
+            for line in lines:
+                #print line
+                line = line.lstrip()
+                if len(line) == 0: continue
+                if line[0] == '#': continue
+                line = re.sub(' +', ' ', line)
+                cmt = line.find("#")
+                
+                sp = line[0:cmt].split()
+    
+                name = sp[0]
+                ra = " ".join(sp[1:4])
+                dec = " ".join(sp[4:7])
+                
+                data.append(
+                Target(name = " %s " % name,
+                    ra = ra,
+                    dec = dec,
+                    dra = 0,
+                    ddec = 0)
+                )
+            self.data = data
+            #self.status = "Processed %i lines" % len(lines)
         
-        data = []
-        for line in lines:
-            print line
-            line = line.lstrip()
-            if len(line) == 0: continue
-            if line[0] == '#': continue
-            line = re.sub(' +', ' ', line)
-            cmt = line.find("#")
-            
-            sp = line[0:cmt].split(" ")
-
-            name = sp[0]
-            ra = " ".join(sp[1:4])
-            dec = " ".join(sp[4:7])
-            
-            data.append(
-            Target(name = " %s " % name,
-                ra = ra,
-                dec = dec,
-                dra = 0,
-                ddec = 0)
-            )
-        self.data = data
-        self.status = "Processed %i lines" % len(lines)
-
+        Thread(target=helper).start()
+        time.sleep(0.0)
+        
 
     view = View(
         Group(
             Item('data', editor = tabular_editor),
             Item('status'),
             Item('send_data'),
+            Item("take_control"),
             Item('go'),
             Item('reload_data'),
-            Item("take_control"),
+
+            Item("cmd"),
             show_labels        = False,
         ),
         title     = 'Array Viewer',
         width     = 0.4,
         height    = 0.6,
-        resizable = True
+        resizable = True,
+        kind = 'live'
     )
 
 
@@ -259,8 +299,6 @@ class CommsThread(Thread):
                 if lhs == 'UTSunrise': T.UTsnrs = rhs 
 
             time.sleep(0.7)
-
-
 
 
 class Telescope(HasTraits):
@@ -375,7 +413,7 @@ def weather_gui_connection():
     return w
 
 def target_gui_connection():
-    tl = TargetList(data = [])
+    tl = TargetList()
  
     tl.configure_traits()
     return tl
@@ -414,8 +452,8 @@ if __name__ == '__main__':
     data = []
 
  
-    demo = TargetList(data = data)
+    demo = TargetList()
  
-    telescope_gui_connection()
-    weather_gui_connection()
+    #telescope_gui_connection()
+    #weather_gui_connection()
     demo.configure_traits()
