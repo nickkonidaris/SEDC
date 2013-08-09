@@ -27,7 +27,7 @@ epy = "c:/python27/python.exe"
 sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
 st = "C:/program files/snaketail/snaketail.exe"
 stage_pid = 0
-#stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
+stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
 
 rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
 ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
@@ -45,7 +45,7 @@ snake_stage_pid  = 0
 #[pids.append(x) for x in [snake_stage_pid, snake_rc_pid, snake_ifu_pid]]
 
 stage_con = None
-#stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
 rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
 ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
@@ -68,7 +68,7 @@ rc_gui._shutter_changed()
 rc_gui.update_settings()
 
 
-#stage= stage_gui.stage_gui_connection(stage_con)
+stage= stage_gui.stage_gui_connection(stage_con)
 
 
 def focus_loop():
@@ -102,7 +102,7 @@ def focus_loop():
         ifu_gui.amp = 1
         ifu_gui.readout=2
         ifu_gui.shutter = 'normal'
-        ifu_gui.exposure= 15
+        ifu_gui.exposure= 25
         ifu_gui._go_button_fired()
         while ifu_gui.exposure_thread.isAlive():
             t.sleep(1)
@@ -139,6 +139,49 @@ def killall():
     except: pass
     try: ifu_con.close()
     except: pass
+
+abort_focus = False
+def secfocus(positions = None):
+    import telnetlib
+    T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+    T.write("takecontrol\n")
+    print T.read_until("\n", .1)
+    
+    def expose():
+        if abort_focus: return
+        print "exposing"
+        
+        while rc_gui.state != 'Idle': t.sleep(0.1)
+        
+        rc_gui._go_button_fired()
+        t.sleep(1)
+        
+        while rc_gui.int_time < (rc_gui.exposure + 1):
+            t.sleep(0.5)
+        
+    def gof(pos_mm):
+        print "to %s" % pos_mm
+        T.write("gofocus %s\n" % pos_mm)
+        res=T.read_until("0", 10)
+        if res != '0': 
+            abort_focus = True
+            return
+    
+    if positions is None:
+        positions = np.arange(13.8, 14.2, 0.05)
+
+    def helper():
+        print "focusing at: ", positions
+        gof(13)
+        for pos in positions:  
+            if abort_focus: return
+            print pos
+            gof(pos)
+            expose()
+
+        gof(13)
+    Thread(target=helper).start()
+
 abort_4 = False
 
 def fourshot(ets = None):
@@ -170,8 +213,8 @@ def fourshot(ets = None):
         t.sleep(4)
         
         while (tel_gui.Status != 'TRACKING') and (abort_4 == False):
-            print "'%s'" % tel_gui.Status
-            t.sleep(1)
+            #print "'%s'" % tel_gui.Status
+            t.sleep(.5)
         
     def expose(time):
         if abort_4: return
@@ -196,9 +239,9 @@ def fourshot(ets = None):
         print "move to u"
         moveto("pt 360 0\n")        
         expose(ets[3])
+        moveto("pt 180 -180\n")
     
     Thread(target=helper).start()
-fourshot()
 
 
 

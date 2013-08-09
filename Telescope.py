@@ -70,7 +70,7 @@ class TargetList(HasTraits):
             T.write("takecontrol\n")
             T.read_until("\n", .1)
             T.write(self.cmd + "\n")
-            r = T.read_until("\n", .1)
+            r = T.read_until("0", 3)
             T.write("givecontrol\n")
 
         except Exception as e:
@@ -80,7 +80,9 @@ class TargetList(HasTraits):
             
                       
         try: res = int(r.rstrip())
-        except: return
+        except: 
+            self.status = "Unknown result '%s'" % str(r)
+            return
         
         if res  == 0:
             self.status = "%i: %s: %s excuted" % (self.counter, self.cmd, gxn_res[res])
