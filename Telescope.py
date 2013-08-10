@@ -55,6 +55,7 @@ class TargetList(HasTraits):
     data = List( Target )
     status = String()
     send_data = Button('Send Coordinates')
+    send_cmd = Button("Send command")
     go = Button('Go')
     take_control = Button('Take Control')
     reload_data = Button("Reload Data from s:\\master.lst")
@@ -63,15 +64,18 @@ class TargetList(HasTraits):
         adapter    = TargetAdapter(),
         operations = [ ]    )
 
-    def _cmd_changed(self):
+    def _send_cmd_fired(self):
+        print "cmd changed"
 
         try: 
             T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
-            T.write("takecontrol\n")
-            T.read_until("\n", .1)
+            print self.cmd
+            
             T.write(self.cmd + "\n")
-            r = T.read_until("0", 3)
-            T.write("givecontrol\n")
+            
+            r = T.expect(["-?\d"], 15)[2]
+            print "'%s'" % r
+
 
         except Exception as e:
             print e
@@ -85,7 +89,7 @@ class TargetList(HasTraits):
             return
         
         if res  == 0:
-            self.status = "%i: %s: %s excuted" % (self.counter, self.cmd, gxn_res[res])
+            self.status = "%i: %s: %s executed" % (self.counter, self.cmd, gxn_res[res])
         else:
             self.status = "%i: %s: %s failed" % (self.counter, self.cmd, gxn_res[res])
 
@@ -115,7 +119,8 @@ class TargetList(HasTraits):
             T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
 
             T.write("coords %f %f 2000.0 0 0\n" % (sd2g(ra), sd2g(dec)))
-            r = T.read_until("\n", .1)
+            r = T.expect(["-?\d"], 15)[2]
+            print "'%s'" % r
 
         except Exception as e:
             print e
@@ -165,8 +170,8 @@ class TargetList(HasTraits):
             T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
 
             T.write("gopos\n")
-            r = T.read_until("\n", .1)
-            T.write("givecontrol\n")
+            r = T.expect(["-?\d"], 5)[2]
+            print "'%s'" % r
 
         except Exception as e:
             print e
@@ -230,11 +235,13 @@ class TargetList(HasTraits):
             Item('data', editor = tabular_editor),
             Item('status'),
             Item('send_data'),
-            Item("take_control"),
+
             Item('go'),
             Item('reload_data'),
 
             Item("cmd"),
+            Item("send_cmd"),
+            Item("take_control"),
             show_labels        = False,
         ),
         title     = 'Array Viewer',

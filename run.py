@@ -27,7 +27,7 @@ epy = "c:/python27/python.exe"
 sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
 st = "C:/program files/snaketail/snaketail.exe"
 stage_pid = 0
-stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
+#stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
 
 rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
 ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
@@ -45,7 +45,7 @@ snake_stage_pid  = 0
 #[pids.append(x) for x in [snake_stage_pid, snake_rc_pid, snake_ifu_pid]]
 
 stage_con = None
-stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+#stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
 rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
 ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
@@ -68,7 +68,7 @@ rc_gui._shutter_changed()
 rc_gui.update_settings()
 
 
-stage= stage_gui.stage_gui_connection(stage_con)
+#stage= stage_gui.stage_gui_connection(stage_con)
 
 
 def focus_loop():
@@ -196,7 +196,7 @@ def fourshot(ets = None):
     print T.read_until("\n", .1)
 
     def moveto(cmd):
-        if abort_4: return
+        #if abort_4: return
         
         T.write(cmd)
         r = T.read_until("\n", .1).rstrip()
