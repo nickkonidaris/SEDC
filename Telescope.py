@@ -15,15 +15,18 @@ from enthought.traits.ui.tabular_adapter \
  
  
 class Target(HasTraits):
-     name = Str
-     ra = Str
-     dec = Str
-     dra = Float
-     ddec = Float
+    lineno = Int
+    name = Str
+    ra = Str
+    dec = Str
+    dra = Float
+    ddec = Float
  
 class TargetAdapter( TabularAdapter ):
 
-    columns = [ ( 'Name',    'name' ), 
+    columns = [ 
+                ( 'l#',     'lineno'),
+                ( 'Name',    'name' ), 
                 ( 'RA',     'ra' ), 
                 ( 'Dec', 'dec' ),
                 ( 'dRA',  'dra' ),
@@ -202,8 +205,10 @@ class TargetList(HasTraits):
                 return
             
             data = []
+            lineno = 0
             for line in lines:
                 #print line
+                lineno += 1
                 line = line.lstrip()
                 if len(line) == 0: continue
                 if line[0] == '#': continue
@@ -221,8 +226,10 @@ class TargetList(HasTraits):
                     ra = ra,
                     dec = dec,
                     dra = 0,
-                    ddec = 0)
+                    ddec = 0,
+                    lineno = lineno)
                 )
+
             self.data = data
             #self.status = "Processed %i lines" % len(lines)
         

@@ -17,6 +17,8 @@ reload(gui)
 reload(stage_gui)
 reload(Focus)
 
+use_stage = False
+
 pids = []
 
 ''' SEDM python is used for running the PI detectors '''
@@ -26,8 +28,9 @@ pids = []
 epy = "c:/python27/python.exe"
 sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
 st = "C:/program files/snaketail/snaketail.exe"
-stage_pid = 0
-#stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
+
+if use_stage: stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
+else: stage_pid = 0
 
 rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
 ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
@@ -40,12 +43,13 @@ t.sleep(.5)
     
 snake_stage_pid  = 0
 #snake_stage_pid = s.Popen([st, "c:/sedm/logs/stage.txt"])
-#snake_rc_pid = s.Popen([st, "c:/sedm/logs/rc.txt"])
+#snake_rc_pid = s.Popen([st, "c:/sedm/logs/stxt"])
 #snake_ifu_pid = s.Popen([st, "c:/sedm/logs/ifu.txt"])
 #[pids.append(x) for x in [snake_stage_pid, snake_rc_pid, snake_ifu_pid]]
 
-stage_con = None
-#stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+
+if use_stage: stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
+else: stage_con = None
 rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
 ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
@@ -68,7 +72,8 @@ rc_gui._shutter_changed()
 rc_gui.update_settings()
 
 
-#stage= stage_gui.stage_gui_connection(stage_con)
+if use_stage: stage = stage_gui.stage_gui_connection(stage_con)
+else: state = None
 
 
 def focus_loop():
@@ -155,8 +160,12 @@ def secfocus(positions = None):
         
         rc_gui._go_button_fired()
         t.sleep(1)
+        #while rc_gui.state != 'Idle': t.sleep(0.1)
+
         
-        while rc_gui.int_time < (rc_gui.exposure + 1):
+        # FIXME: Once headers are stored before exposure begins 
+        # this should be uncommented.
+        while rc_gui.int_time < (rc_gui.exposure + 2):
             t.sleep(0.5)
         
     def gof(pos_mm):
@@ -168,7 +177,7 @@ def secfocus(positions = None):
             return
     
     if positions is None:
-        positions = np.arange(13.8, 14.2, 0.05)
+        positions = np.arange(13.8, 14.3, 0.05)
 
     def helper():
         print "focusing at: ", positions
@@ -198,19 +207,19 @@ def fourshot(ets = None):
     def moveto(cmd):
         #if abort_4: return
         
+        print cmd
         T.write(cmd)
-        r = T.read_until("\n", .1).rstrip()
+        r = T.expect(["-?\d"], 15)[2]
         print "returned: %s" % r
         
         try: res = int(r)
-        except: 
-            res = 0
+        except: res = 0
         
         if res != 0: 
             print "Bad retcode in move: %s --> %i" % (cmd, r)
             raise Exception("bad")        
 
-        t.sleep(4)
+        t.sleep(6)
         
         while (tel_gui.Status != 'TRACKING') and (abort_4 == False):
             #print "'%s'" % tel_gui.Status
@@ -223,7 +232,9 @@ def fourshot(ets = None):
         rc_gui._go_button_fired()
         t.sleep(1)
         
-        while rc_gui.state != 'Idle': t.sleep(.5)
+        while rc_gui.int_time < (rc_gui.exposure + 3):
+            t.sleep(0.5)
+
         
     def helper():
         
@@ -234,12 +245,79 @@ def fourshot(ets = None):
         moveto("pt -360 0\n")        
         expose(ets[1])
         print "move to g"
+        
         moveto("pt 0 -360\n")        
         expose(ets[2])
         print "move to u"
         moveto("pt 360 0\n")        
         expose(ets[3])
-        moveto("pt 180 -180\n")
+    
+    Thread(target=helper).start()
+
+
+def AB(n_times):
+        
+    import telnetlib
+    T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+    T.write("takecontrol\n")
+    print T.read_until("\n", .1)
+
+    def moveto(cmd):
+        #if abort_4: return
+        
+        print cmd
+        T.write(cmd)
+        r = T.expect(["-?\d"], 15)[2]
+        print "returned: %s" % r
+        
+        try: res = int(r)
+        except: res = 0
+        
+        if res != 0: 
+            print "Bad retcode in move: %s --> %i" % (cmd, r)
+            raise Exception("bad")        
+
+        t.sleep(6)
+        
+        while (tel_gui.Status != 'TRACKING') and (abort_4 == False):
+            #print "'%s'" % tel_gui.Status
+            t.sleep(.5)
+        
+    def expose():
+        if abort_4: return
+        print "exposing"
+        rc_gui.num_exposures = 5
+        rc_gui.exposure = 60
+        ifu_gui.exposure = 300
+        
+        rc_gui._go_button_fired()
+        ifu_gui._go_button_fired()
+        
+        t.sleep(5)
+        
+        while (rc_gui.state != 'Idle') or (ifu_gui.state != 'Idle'):
+            t.sleep(1.5)
+
+        
+    def helper():
+        
+        obj_ifu = ifu_gui.object
+        obj_rc = ifu_gui.object
+        
+        while n_times > 0:
+            ifu_gui.object = "%s [A]" % obj_ifu
+            rc_gui.object = "%s [A]" % obj_rc
+            expose()
+            moveto("pt 0 5\n")        
+            ifu_gui.object = "%s [B]" % obj_ifu
+            rc_gui.object = "%s [B]" % obj_rc
+            expose() 
+            moveto("pt 0 -5\n")  
+            n_times -= 1
+        
+        ifu_gui.object = "%s" % obj_ifu
+        rc_gui.object = "%s" % obj_rc
+
     
     Thread(target=helper).start()
 
