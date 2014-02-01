@@ -97,7 +97,6 @@ def focus_loop():
         stage.target = float(pos)
         stage._go_button_fired()
         t.sleep(.2)
-            
         T = Thread(target=waitfor)
         T.start()
         T.join()
@@ -177,7 +176,7 @@ def secfocus(positions = None):
             return
     
     if positions is None:
-        positions = np.arange(13.8, 14.3, 0.05)
+        positions = np.arange(13.8, 15, 0.15)
 
     def helper():
         print "focusing at: ", positions
