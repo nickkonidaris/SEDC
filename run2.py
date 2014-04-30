@@ -10,10 +10,11 @@ import math
 import GXN
 
 import Focus
+import Util
 
-import gui, stage_gui, Telescope
+import gui, stage_gui, Telescope_server
 
-reload(Telescope)
+reload(Telescope_server)
 reload(gui)
 reload(stage_gui)
 reload(Focus)
@@ -22,93 +23,77 @@ use_stage = True
 
 pids = []
 
+
+###
+###   STARTUP
+###
+
 ''' SEDM python is used for running the PI detectors '''
 ''' Enthought python is used for high-level control'''
+epy = Util.epy
+sedmpy = Util.sedmpy
 
 
-epy = "c:/users/sedm/appdata/local/enthought/canopy/user/scripts/python.exe"
-sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
-st = "C:/program files/snaketail/snaketail.exe"
-
-
-
-if use_stage: stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
-else: stage_pid = 0
-
-pids.append(stage_pid)
-#
-#rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
-#ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
-#[pids.append(x) for x in [stage_pid, rc_pid, ifu_pid]]
-t.sleep(.5)
-
-#
-
-
-if use_stage: stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
-else: stage_con = None
-
-#tel_gui = Telescope.telescope_gui_connection()
-tel_gui = None
-#target_gui = Telescope.target_gui_connection()
-
-
-
+tel_pid = s.Popen([epy, "c:/sw/sedm/Telescope_server.py"])
 rc_gui_pid = s.Popen([epy, "c:/sw/sedm/camera_control_gui.py", "-rc"])
 ifu_gui_pid = s.Popen([epy, "c:/sw/sedm/camera_control_gui.py", "-ifu"])
-t.sleep(10)
-
-
+offset_gui_pid = s.Popen([epy, "c:/sw/sedm/Offsets.py"])
+stage_gui_pid = s.Popen([epy, "c:/sw/sedm/stage_server.py"])
 pids.append(rc_gui_pid)
 pids.append(ifu_gui_pid)
+pids.append(offset_gui_pid)
+pids.append(tel_pid)
+pids.append(stage_gui_pid)
+t.sleep(12)
+
 
 rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:9001")
 ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:9002")
+tel_control = xmlrpclib.ServerProxy("http://127.0.0.1:9003")
+stage_control = xmlrpclib.ServerProxy("http://127.0.0.1:9004")
 
 rc_control.show()
 ifu_control.show()
-
-if use_stage: stage = stage_gui.stage_gui_connection(stage_con)
-else: state = None
+tel_control.show()
+stage_control.show()
 
 
 def focus_loop():
     
     def waitfor():
         t.sleep(3)
-        while not stage.is_ready:
-            print "waiting.."
-            t.sleep(1)
+        while not stage_control.get_is_ready():
+            t.sleep(.2)
     
     print "Starting focus loop"
-    stage.comms_thread.request_focus = True
+    stage_control.request_focus(True)
+
     
-    if not stage.is_ready:
+    if not stage_control.get_is_ready():
         print "Stage not homed"
         return    
     files = []
     
-    for pos in np.arange(3.0,3.6,.05):
+    for pos in np.arange(3.3,4.1,.05):
         print "Moving to %f...." % pos
-        stage.target = float(pos)
-        stage._go_button_fired()
-        t.sleep(.2)
-        T = Thread(target=waitfor)
-        T.start()
-        T.join()
+        stage_control.set_target(float(pos))
+        stage_control.go()
+        t.sleep(10)
+
+        waitfor()
 
         print "..Moved to %f" % pos
-        ifu_gui.gain = 2
-        ifu_gui.amp = 1
-        ifu_gui.readout=2
-        ifu_gui.shutter = 'normal'
-        ifu_gui.exposure= 25
-        ifu_gui._go_button_fired()
-        while ifu_gui.exposure_thread.isAlive():
-            t.sleep(1)
+        ifu_control.setreadout(2)
+        ifu_control.setshutter('normal')
+        ifu_control.setexposure(25)
+        ifu_control.go()
+
+        while ifu_control.isExposing():
+            t.sleep(0.2)
         
-        files.append(ifu_gui.filename)
-    stage.comms_thread.request_focus = False
+        files.append(ifu_control.getfilename())
+        
+    stage_control.request_focus(False)
     print files
     
 def go_focus_loop():
@@ -116,60 +101,22 @@ def go_focus_loop():
     T.start()
 
 
-def killall():
-    import ctypes
- 
-    try:
-        for p in pids:
-            try: ctypes.windll.kernel32.TerminateProcess(int(p._handle), -1)
-            except: pass
-    except NameError:
-        pass
-    
-    try:
-        stage.request_abort = True
-        ifu_gui.request_abort = True
-        rc_gui.request_abort = True
-    except: pass
-
-    
-    try: stage_con.close()
-    except: pass
-    try: rc_con.close()
-    except: pass
-    try: ifu_con.close()
-    except: pass
-
 abort_focus = False
 def secfocus(positions = None):
-    import telnetlib
-    T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
-    T.write("takecontrol\n")
-    print T.read_until("\n", .1)
     
     def expose():
         if abort_focus: return
         print "exposing"
         
-        while rc_gui.state != 'Idle': t.sleep(0.1)
+        while rc_control.isExposing():
+            t.sleep(0.2)
         
-        rc_gui._go_button_fired()
+        rc_gui.go()
         t.sleep(1)
-        #while rc_gui.state != 'Idle': t.sleep(0.1)
-
-        
-        # FIXME: Once headers are stored before exposure begins 
-        # this should be uncommented.
-        while rc_gui.int_time < (rc_gui.exposure + 2):
-            t.sleep(0.5)
         
     def gof(pos_mm):
         print "to %s" % pos_mm
-        T.write("gofocus %s\n" % pos_mm)
-        res=T.read_until("0", 10)
-        if res != '0': 
-            abort_focus = True
-            return
+        GXN.gofocus(pos_mm)
     
     if positions is None:
         positions = np.arange(13.8, 15, 0.15)
@@ -193,59 +140,52 @@ def fourshot(ets = None):
     if ets == None:
         it = rc_gui.exposure
         ets = [it] * 4
-    
-    import telnetlib
-    T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
-    T.write("takecontrol\n")
-    print T.read_until("\n", .1)
-
-    def moveto(cmd):
-        #if abort_4: return
-        
-        print cmd
-        T.write(cmd)
-        r = T.expect(["-?\d"], 15)[2]
-        print "returned: %s" % r
-        
-        try: res = int(r)
-        except: res = 0
-        
-        if res != 0: 
-            print "Bad retcode in move: %s --> %i" % (cmd, r)
-            raise Exception("bad")        
-
-        t.sleep(6)
-        
-        while (tel_gui.Status != 'TRACKING') and (abort_4 == False):
-            #print "'%s'" % tel_gui.Status
-            t.sleep(.5)
         
     def expose(time):
         if abort_4: return
-        rc_gui.exposure = time
-        print "exposing"
-        rc_gui._go_button_fired()
-        t.sleep(1)
+        rc_control.setexposure(time)
         
-        while rc_gui.int_time < (rc_gui.exposure + 3):
-            t.sleep(0.5)
+        
+        print "exposing"
+        while rc_control.isExposing():
+            t.sleep(0.2)
+
+        rc_control.go()
+        
+        while rc_control.isExposureComplete():
+            t.sleep(0.2)
 
         
     def helper():
         
-        print "move to r"
-        moveto("pt 180 180\n")        
-        expose(ets[0])    
-        print "move to i"
-        moveto("pt -360 0\n")        
-        expose(ets[1])
-        print "move to g"
+        to_move = np.array([180, 180])
         
-        moveto("pt 0 -360\n")        
-        expose(ets[2])
-        print "move to u"
-        moveto("pt 360 0\n")        
-        expose(ets[3])
+        if ets[0] != 0:
+            print "move to r"
+            GXN.pt(*to_move)
+            to_move = np.array([0,0])
+            expose(ets[0])
+        
+        to_move += np.array([-360,0])
+        if ets[1] != 0:
+            print "move to i"
+            GXN.pt(*to_move)
+            to_move = np.array([0,0])
+            expose(ets[1])
+        
+        to_move += np.array(0,-360)
+        if ets[2] != 0:            
+            print "move to g"
+            GXN.pt(*to_move)
+            to_move = np.array([0,0])
+            expose(ets[2])
+        
+        to_move += np.array([360,0])
+        if ets[3] != 0:
+            print "move to u"
+            GXN.pt(*to_move)
+            to_move = np.array([0,0])
+            expose(ets[3])
     
     Thread(target=helper).start()
 

@@ -19,6 +19,7 @@ import psutil
 import subprocess as SP
 
 import GXN
+import Util
 from subprocess import check_output
 
 def ra_to_deg(ra):
@@ -251,7 +252,7 @@ class ExposureThread(Thread):
 
             play_sound("SystemAsterix")    
             
-            xpa_methods = check_and_start_ds9()
+            xpa_methods = Util.check_and_start_ds9()
             if self.camera.name == 'rc': method = xpa_methods[0]
             else: method = xpa_methods[1]
             ds9_image(method,  filename)
@@ -305,6 +306,7 @@ class Camera(HasTraits):
         
     def setshutter(self, val):
         self.shutter = val
+        self.connection.set_shutter(self.shutter)
         return self.shutter
     
     def setexposure(self, val):
@@ -317,9 +319,15 @@ class Camera(HasTraits):
         else:
             return False
     
+    def isExposureComplete(self):
+        return (self.int_time) < (self.exposure + 3)
+    
     def setobject(self, val):
         self.object = val
         return self.object
+        
+    def getfilename(self):
+        return self.filename
         
     def getall(self):
         '''For XMLRPCServer, provides access to variables'''
@@ -403,55 +411,6 @@ class Window(Handler):
         if info.initialized:
             info.ui.title += "*"
 
-def list_ds9s():
-    startupinfo = SP.STARTUPINFO()
-    startupinfo.dwFlags |= SP.STARTF_USESHOWWINDOW
-    startupinfo.wShowWindow = SP.SW_HIDE
-
-    p = SP.Popen("c:/ds9/xpaaccess.exe -v ds9", startupinfo=startupinfo, stdout=SP.PIPE)
-    res = p.stdout.read()
-
-    if res == '': return []
-    xpa_methods = res.rstrip().split("\n")
-    return xpa_methods
-
-
-def check_and_start_ds9():
-    '''Checks to see if two ds9s are running. If not, start them.
-    
-    Calls list_ds9() to return a list of running ds9 instances. IFU
-    will use the second running ds9 and the RC will use the first.
-    
-    On windows xpans must be running for the xpa_method list to be activated.
-    
-    Returns:
-        [] of XPA Methods to the running ds9s'''
-    startupinfo = SP.STARTUPINFO()
-    startupinfo.dwFlags |= SP.STARTF_USESHOWWINDOW
-    startupinfo.wShowWindow = SP.SW_HIDE
-
-    xpans_running = "xpans.exe" in [psutil.Process(i).name for i in psutil.get_pid_list()]
-    
-    if not xpans_running:
-        print "xpans not running."
-        SP.Popen("c:/ds9/xpans", startupinfo=startupinfo)
-    
-    methods = list_ds9s()
-    
-    if len(methods) == 0:
-        print "No ds9s running"
-        SP.Popen("c:/ds9/ds9", startupinfo=startupinfo)
-        SP.Popen("c:/ds9/ds9", startupinfo=startupinfo)
-        import time
-        time.sleep(5)
-    elif len(methods) == 1: 
-        print "one ds9 running"
-        SP.Popen("c:/ds9/ds9", startupinfo=startupinfo)
-        import time
-        time.sleep(3)
-
-
-    return list_ds9s()
 
 def open_camera(name):
 
@@ -479,13 +438,16 @@ def open_camera(name):
     c.status_threads = Status
     if name == 'rc': c.readout = 2
 
+
     server = SimpleXMLRPCServer(("127.0.0.1", port+1000), logRequests=True)
     print "Serving on port %i" % (port+1000)
 
     server.register_instance(c)
-    os.system("title {} Control".format(name, os.getpid()))
     
+    os.system("title {} Control".format(name, os.getpid()))
+
     server.serve_forever()
+
 
 if __name__ == '__main__':
 

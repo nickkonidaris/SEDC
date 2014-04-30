@@ -7,6 +7,7 @@ import re
 import time
 import numpy as np
 from datetime import datetime
+import Util
 
 from traitsui.api import View, Item, Handler, Action, TabularEditor, Group
 from traitsui.menu import ApplyButton
@@ -45,7 +46,6 @@ class Offsetter(HasTraits):
     
     dx = Float()
     dy = Float()
-    xpa = String()
     send = Button('Send')
     loadsend = Button('Load and Send Coordinates')
     toifu = Button("Send to IFU")
@@ -55,7 +55,6 @@ class Offsetter(HasTraits):
     view = View(
         Group(
 
-            Item('xpa'),
             Item('status'),
             Item('loadsend'),
             Item('toifu'),
@@ -117,7 +116,8 @@ class Offsetter(HasTraits):
         self.pt(-120, -120)
         
     def _loadsend_fired(self):
-        xpa = self.xpa
+        xpa_methods = Util.check_and_start_ds9()
+        xpa = xpa_methods[0]
         
         try: 
             regions = check_output("c:\\ds9\\xpaget %s regions -format ds9 -system wcs -skyformat sexagesimal" % (xpa), shell=True)

@@ -10,14 +10,15 @@ def analyize_files(files):
     q2 = []
     q3 = []
     q4 = []
+    
     for file in files:
         print file
         f = pf.open(file)
         PHDU = f[0]
         
         header,data = PHDU.header, PHDU.data
-        try: focus = header["IFUFOCUS"]
-        except: continue
+        #try: focus = header["IFUFOCUS"]
+        #except: continue
         
         
         sort = np.sort(data.flatten())
@@ -30,8 +31,7 @@ def analyize_files(files):
         
         
         
-        print focus, sort[a],sort[b],(sort[b]-sort[a])/np.median(sort)
-        focuss.append(focus)
+        print file, sort[a],sort[b],(sort[b]-sort[a])/np.median(sort)
         metric.append(sort[b]-sort[a])
         
         a = np.floor(1024*1024*.01)
@@ -44,4 +44,4 @@ def analyize_files(files):
         
         
         
-    return focuss, metric, q1, q2, q3, q4
+    return  metric, q1, q2, q3, q4

@@ -312,7 +312,7 @@ if __name__ == "__main__":
     
     log.info("*************************RESTARTING************************")
     
-    server = SimpleXMLRPCServer(("localhost", 8000), logRequests=True)
+    server = SimpleXMLRPCServer(("localhost", 8500), logRequests=True)
 
     server.register_instance(IFU())
     
