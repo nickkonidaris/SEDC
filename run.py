@@ -55,7 +55,8 @@ ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
 
 t.sleep(2)
 
-tel_gui = Telescope.telescope_gui_connection()
+#tel_gui = Telescope.telescope_gui_connection()
+tel_gui = None
 #target_gui = Telescope.target_gui_connection()
 
 

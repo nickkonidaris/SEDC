@@ -90,14 +90,14 @@ class ExposureThread(Thread):
             
             hdrvalues_to_update = []
             
-            
-            for trait in self.camera.tel_stat.trait_names():
-                trait_val = self.camera.tel_stat.trait_get(trait)
-                # trait_val looks like {trait: trait_val} or {}
-                if trait_val.has_key(trait):
-                    hdrvalues_to_update.append((trait, trait_val[trait]))
-                else:
-                    pass
+            if self.camera.tel_stat is not None:
+                for trait in self.camera.tel_stat.trait_names():
+                    trait_val = self.camera.tel_stat.trait_get(trait)
+                    # trait_val looks like {trait: trait_val} or {}
+                    if trait_val.has_key(trait):
+                        hdrvalues_to_update.append((trait, trait_val[trait]))
+                    else:
+                        pass
                                 
             try:
                 self.camera.state = "Exposing..."
@@ -181,26 +181,33 @@ class ExposureThread(Thread):
             hdr.update("CHANNEL", self.camera.name, "Instrument channel")
             hdr.update("TNAME", self.camera.target_name, "Target name")
             
-            if self.camera.name == 'rc':
-                hdr.update("CRPIX1", 1293, "Center pixel position")
-                hdr.update("CRPIX2", 1280, "")
-                hdr.update("CDELT1", -0.00010944, "0.394 as")
-                hdr.update("CDELT2" ,-0.00010944, "0.394 as")
-                hdr.update("CTYPE1", "RA---TAN")
-                hdr.update("CTYPE2", "DEC--TAN")
-                hdr.update("CRVAL1", ra_to_deg(hdr["RA"]), "from tcs")
-                hdr.update("CRVAL2", dec_to_deg(hdr["Dec"]), "from tcs")
-            elif self.camera.name == 'ifu':
-                hdr.update("CRPIX1", 1075, "Center pixel position")
-                hdr.update("CRPIX2", 974, "Center pixel position")
-                hdr.update("CDELT1", -0.0000025767, "0.00093 as")
-                hdr.update("CDELT2", -0.0000025767, "0.00093 as")
-                hdr.update("CTYPE1", "RA---TAN")
-                hdr.update("CTYPE2", "DEC--TAN")
-                as120 = 0.03333
-                hdr.update("CRVAL1", ra_to_deg(hdr["ra"]) - as120, "from tcs")
-                hdr.update("CRVAL2", dec_to_deg(hdr["dec"]) - as120, "from tcs")
-
+            try:
+                if self.camera.name == 'rc':
+                    hdr.update("CRPIX1", 1293, "Center pixel position")
+                    hdr.update("CRPIX2", 1280, "")
+                    hdr.update("CDELT1", -0.00010944, "0.394 as")
+                    hdr.update("CDELT2" ,-0.00010944, "0.394 as")
+                    hdr.update("CTYPE1", "RA---TAN")
+                    hdr.update("CTYPE2", "DEC--TAN")
+                    hdr.update("CRVAL1", ra_to_deg(hdr["RA"]), "from tcs")
+                    hdr.update("CRVAL2", dec_to_deg(hdr["Dec"]), "from tcs")
+                elif self.camera.name == 'ifu':
+                    hdr.update("CRPIX1", 1075, "Center pixel position")
+                    hdr.update("CRPIX2", 974, "Center pixel position")
+                    hdr.update("CDELT1", -0.0000025767, "0.00093 as")
+                    hdr.update("CDELT2", -0.0000025767, "0.00093 as")
+                    hdr.update("CTYPE1", "RA---TAN")
+                    hdr.update("CTYPE2", "DEC--TAN")
+                    as120 = 0.03333
+                    hdr.update("CRVAL1", ra_to_deg(hdr["ra"]) - as120, "from tcs")
+                    hdr.update("CRVAL2", dec_to_deg(hdr["dec"]) - as120, "from tcs")
+            except Exception as e:
+                print "Could not update header:"
+                print type(e)     # the exception instance
+                print e.args      # arguments stored in .args
+                print e          
+                
+                
             new_hdu = pf.PrimaryHDU(np.uint16(hdus[0].data), header=hdr)
             hdus.close()
 
