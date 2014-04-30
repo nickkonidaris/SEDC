@@ -1,5 +1,5 @@
 import subprocess as s
-import xmlrpclib as xmlrpclib
+import xmlrpclib
 from multiprocessing import Process, Event
 import Queue
 from threading import Thread
@@ -7,6 +7,7 @@ import numpy as np
 import time as t
 import sched
 import math
+import GXN
 
 import Focus
 
@@ -25,35 +26,27 @@ pids = []
 ''' Enthought python is used for high-level control'''
 
 
-epy = "c:/python27/python.exe"
+epy = "c:/users/sedm/appdata/local/enthought/canopy/user/scripts/python.exe"
 sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
 st = "C:/program files/snaketail/snaketail.exe"
+
+
 
 if use_stage: stage_pid = s.Popen([epy, "c:/sw/sedm/Stage.py"])
 else: stage_pid = 0
 
-rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
-ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
-[pids.append(x) for x in [stage_pid, rc_pid, ifu_pid]]
+pids.append(stage_pid)
+#
+#rc_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-rc"])
+#ifu_pid = s.Popen([sedmpy, "c:/sw/sedm/camera.py", "-ifu"])
+#[pids.append(x) for x in [stage_pid, rc_pid, ifu_pid]]
 t.sleep(.5)
 
 #
 
-''' Tail '''
-    
-snake_stage_pid  = 0
-#snake_stage_pid = s.Popen([st, "c:/sedm/logs/stage.txt"])
-#snake_rc_pid = s.Popen([st, "c:/sedm/logs/stxt"])
-#snake_ifu_pid = s.Popen([st, "c:/sedm/logs/ifu.txt"])
-#[pids.append(x) for x in [snake_stage_pid, snake_rc_pid, snake_ifu_pid]]
-
 
 if use_stage: stage_con = xmlrpclib.ServerProxy("http://127.0.0.1:8000")
 else: stage_con = None
-rc_con = xmlrpclib.ServerProxy("http://127.0.0.1:8001")
-ifu_con = xmlrpclib.ServerProxy("http://127.0.0.1:8002")
-
-t.sleep(2)
 
 #tel_gui = Telescope.telescope_gui_connection()
 tel_gui = None
@@ -61,17 +54,19 @@ tel_gui = None
 
 
 
-ifu_gui, ifu_view = gui.gui_connection(ifu_con, 'ifu', tel_gui, stage_connection=stage_con)
-rc_gui, rc_view = gui.gui_connection(rc_con, 'rc', tel_gui)
+rc_gui_pid = s.Popen([epy, "c:/sw/sedm/camera_control_gui.py", "-rc"])
+ifu_gui_pid = s.Popen([epy, "c:/sw/sedm/camera_control_gui.py", "-ifu"])
+t.sleep(10)
 
 
-ifu_gui.configure_traits(view=ifu_view)
-rc_gui.configure_traits(view=rc_view)
-ifu_gui._shutter_changed()
-ifu_gui.update_settings()
-rc_gui._shutter_changed()
-rc_gui.update_settings()
+pids.append(rc_gui_pid)
+pids.append(ifu_gui_pid)
 
+rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:9001")
+ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:9002")
+
+rc_control.show()
+ifu_control.show()
 
 if use_stage: stage = stage_gui.stage_gui_connection(stage_con)
 else: state = None
@@ -322,7 +317,3 @@ def AB(n_times):
     Thread(target=helper).start()
 
 
-
-print "Open up two instances of DS9 and get xpa->information->xpa_method"
-print "Then set: rc_gui.xpa_class = METHOD NAME"
-print "Then set: ifu_gui.xpa_class = METHOD NAME"
