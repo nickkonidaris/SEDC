@@ -62,9 +62,10 @@ class CommsThread(Thread):
     def run(self):       
         T = self.telescope 
         while not self.abort:
-            self.telescope.telnet.write("?POS\n")
+            Tel = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
+            Tel.write("?POS\n")
             while True:
-                r= self.telescope.telnet.read_until("\n", .1)
+                r= Tel.read_until("\n", .1)
                 if r == "":
                     break               
 
@@ -109,13 +110,13 @@ class CommsThread(Thread):
                 if lhs == 'UTSunset': T.UTSunset = rhs
                 if lhs == 'UTSunrise': T.UTsnrs = rhs 
 
+            Tel.close()
             time.sleep(0.7)
 
 
 class Telescope(HasTraits):
     comms_thread = Instance(CommsThread)
     
-    telnet = Instance(telnetlib.Telnet)
     UTC = String()
     LST = String()
     JD = Float()
@@ -179,7 +180,6 @@ class Telescope(HasTraits):
     
     def __init__(self):
         
-        self.telnet = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
         self.comms_thread = CommsThread()
         self.comms_thread.telescope = self
 
@@ -213,8 +213,6 @@ class Weather(HasTraits):
     Weather_Status = String()
     
     def __init__(self):
-        
-        self.telnet = telnetlib.Telnet("pele.palomar.caltech.edu", 49300)
         self.comms_thread = WeatherCommsThread()
         self.comms_thread.weather = self
     
@@ -224,9 +222,11 @@ class WeatherCommsThread(Thread):
 
         
     def run(self):       
-        W = self.weather 
+        W = self.weather
+
         while not self.abort:
-            W.telnet.write("?WEATHER\n")
+            Tel = telnetlib.Telnet("pele.palomar.caltech.edu", 49300) 
+            Tel.write("?WEATHER\n")
             while True:
 
                 r= W.telnet.read_until("\n", .1)
@@ -239,7 +239,9 @@ class WeatherCommsThread(Thread):
                 
                 type_fun = type(getattr(W, lhs))
                 setattr(W, lhs, type_fun(rhs))
+            Tel.close()
             time.sleep(1)
+
             
 def weather_gui_connection():
     w = Weather()

@@ -52,61 +52,64 @@ class SlowCommandFailed(Exception):
 class Commands:
     '''Wrapper around the GXN/Telnet interface'''
     
-    T = None
     gxn_res = {0: "Success", -1: "Unknown command", -2: "Bad parameter", 
         -3: "Aborted", -6: "Do not have control"}
     
     def __init__(self):
         log.info("GXN Interface initalizing")
-        try:
-            self.T = telnetlib.Telnet(PELE, PELEPORT)
-        except Exception as e:
-            log.error("GXN TCS Connection Error: %s" % e)
-            raise TCSConnectionError(e)
-            
-        log.info("Connection to %s made" % PELE)
+
     
     def close(self):
-        log.info("Closing telnet")
-        self.T.close()
+        log.info("Closing ")
         
     def __del__(self):
         self.close()
         
-    def write(self, str):
-        T = self.T
+    def write(self, str, slow=False):
+        T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300) 
         log.debug("Sending '%s'" % str.rstrip())
         T.write(str)
         
+        if slow: return T
+        
+        T.close()
+        
     def read_until(self, s,timeout):
-        T = self.T
+        T = telnetlib.Telnet("pele.palomar.caltech.edu", 49300) 
         try:
             r=T.read_until(s, timeout)
         except Exception as e:
+            T.close()
             raise TCSReadError(e)
         log.info("GXN Cmd returned: '%s'" % r.rstrip())
-    
-    def slow(self, timeout):
+        T.close()
+        
+    def slow(self, timeout, T):
         '''Handle a slow command block until timeout'''
         # A slow command is defined by John Henning as a blocking command.
-        T = self.T
+        log.info("Handling slow command")
         try:
             r = T.expect(["-?\d"], timeout)[2]
         except Exception as e:
+            T.close()
             log.error("GXN Slow command returned garbage")
             return
  
+        log.info("Returned: %s" % r)
         try: res = int(r)
         except:
             log.error("GXN Command timed out")
             SlowCommandFailed("Time out")
+            T.close()
             return
         
         log.info("GXN Slow command returned %i" % res)
         if res == 0:
             log.debug("GXN Executed command")
+            T.close()
         else:
             log.error("GXN Command failed: %s" % self.gxn_res[res])
+            T.close()
             raise SlowCommandFailed("%i: %s" % (res, self.gxn_res[res]))
 
         
@@ -116,8 +119,8 @@ class Commands:
         MOVING during move.'''
         log.info("GXN: pt %f %f" % (dRA, dDec))
                 
-        self.write("pt %f %f\n" % (dRA, dDec))
-        self.slow(60)
+        T = self.write("pt %f %f\n" % (dRA, dDec), slow=True)
+        self.slow(60, T)
     
     def takecontrol(self):
         '''Send takecontrol command'''
@@ -130,22 +133,22 @@ class Commands:
         '''Send telinit command, block for 300 s'''
         
         log.info("GXN telinit")
-        self.write("telinit\n")
-        return self.slow(300)
+        T = self.write("telinit\n", slow=True)
+        return self.slow(300, T)
     
     def stow_flats(self):
         '''Stow to flat position, block for 300 s'''
         
         log.info("GXN stow flats")
-        self.write("stow 0.0 85.0 90\n")
+        T = self.write("stow 0.0 85.0 90\n", slow=True)
         
-        return self.slow(300)
+        return self.slow(300, T)
     
     def lamps_on(self):
         log.info("GXN lamp on")
-        self.write("lampon\n")
+        T = self.write("lampon\n", slow=True)
         time.sleep(1)
-        self.slow(30)
+        self.slow(30, T)
  
     
     def stop(self):
@@ -160,19 +163,19 @@ class Commands:
         
     def open_dome(self):
         log.info("GXN open dome")
-        self.write("open\n")
-        self.slow(300)
+        T=self.write("open\n", slow=True)
+        self.slow(300,T)
     
     def close_dome(self):
         log.info("GXN close dome")
-        self.write("close\n")
-        self.slow(300)
+        T = self.write("close\n", slow=True)
+        self.slow(300,T)
     
     def gofocus(self, pos_mm):
         log.info("GXN Set focus stage to %2.3f" % (pos_mm))
         
-        self.write("gofocus %3.6f\n" % pos_mm)
-        self.slow(30)
+        T=self.write("gofocus %3.6f\n" % pos_mm, slow=True)
+        self.slow(30,T)
         
         
     def coords(self, ra, # in decimal hours
@@ -180,11 +183,26 @@ class Commands:
                     equinox, # 0 means apparent
                     ra_rate, dec_rate, 
                     flag, # adjusts rates. 0: 0.0001sec/yr, 1,2: as/hr
-                    epoch=None): # for non sidereal
-        
-        
+                    epoch=None,
+                    name=None): # for non sidereal
+        '''From Henning:
+        COORDS (FAST) accepts information to specify a TARGET Position.  If no 
+non-sidereal motion needs to be specified, parameters 6&7 may be omitted.  
+Parameters: 
+(1) Right Ascension in decimal hours;
+(2) Declination in decimal degrees;
+(3) Equinox of coordinates in decimal years -- zero means apparent; 
+(4) RA rate: 0.0001sec/yr if flag (see parameter 6) is 0, arcsec/hr if 
+flag is 1, sec/hr if flag is 2;
+(5) Dec rate: 0.001 arcsec/yr if flag is 0, arcsec/hr if flag is 1 or 2;
+[(6) Motion flag: 0=proper motion, which is the default if this parameter 
+is absent; 1=non-sidereal rates (RA spatial rate), 2=non-sidereal rates 
+(RA angular rate);
+[(7) Epoch of coordinates for non-sidereal targets in decimal hours
+(current UTC if omitted).]]
+'''
         try: aRa = Angle(ra)
-        except: aRa = Angle("%f d" % ra)
+        except: aRa = Angle("%f h" % ra)
         try: aDec = Angle(dec)
         except: aDec = Angle("%f d" % dec)
         
@@ -192,28 +210,35 @@ class Commands:
         dDec = aDec.deg
         
         log.info("GXN coords")
-        if epoch is not None:
-            self.write("coords %f %f %f %f %f %i %f\n" %
-                (hRA, dDec, equinox, ra_rate, dec_rate, flag, epoch))
+        
+        if name is None:
+            nm = ""
         else:
-            self.write("coords %f %f %f %f %f %i\n" %
-                (hRA, dDec, equinox, ra_rate, dec_rate, flag))
+            nm = '"%s"' % name
+            
+        if epoch is not None:
+            self.write("coords %f %f %f %f %f %i %f %s\n" %
+                (hRA, dDec, equinox, ra_rate, dec_rate, flag, epoch,
+                    nm))
+        else:
+            self.write("coords %f %f %f %f %f %i %s\n" %
+                (hRA, dDec, equinox, ra_rate, dec_rate, flag, nm))
         
         self.read_until("\n", .1)
     
     
     def go(self):
         log.info ('GXN.gopos')
-        self.write('gopos\n')
-        return self.slow(300)
+        T = self.write('gopos\n', slow=True)
+        return self.slow(300, T)
     
     def stow_day(self):
         '''Daystow, block for 300 s'''
         
         log.info('GXN daystow')
-        self.write("stow 3.6666666666 50.0 40\n")
+        T = self.write("stow 3.6666666666 50.0 40\n", slow=True)
         
-        return self.slow(300)        
+        return self.slow(300, T)        
     
 class CommsThread(Thread):
     abort = False
@@ -224,13 +249,14 @@ class CommsThread(Thread):
         T = self.telescope 
         while not self.abort:
             try:
-                self.telescope.telnet.write("?POS\n")
+                Tel = telnetlib.Telnet("pele.palomar.caltech.edu", 49300) 
+                Tel.write("?POS\n")
             except Exception as e:
                 raise TCSReadError(e)
                 
             while True:
 
-                r= self.telescope.telnet.read_until("\n", .1)
+                r= Tel.read_until("\n", .1)
                 if r == "":
                     break               
 
@@ -275,12 +301,12 @@ class CommsThread(Thread):
                 if lhs == 'UTSunset': T.UTSunset = rhs
                 if lhs == 'UTSunrise': T.UTsnrs = rhs 
 
+            Tel.close()
             time.sleep(2)
 
 class Telescope(HasTraits):
     comms_thread = Instance(CommsThread)
     
-    telnet = Instance(telnetlib.Telnet)
     UTC = String()
     LST = String()
     JD = Float()
@@ -319,12 +345,7 @@ class Telescope(HasTraits):
     
     def __init__(self):
         log.info("Telescope status thread initialized")
-        
-        
-        try:
-            self.telnet = telnetlib.Telnet(PELE, PELEPORT)
-        except Exception as e:
-            raise TCSConnectionError(e)
+
 
         self.comms_thread = CommsThread()
         self.comms_thread.telescope = self            
@@ -342,16 +363,17 @@ class GenericCommsThread(Thread):
         
         R = self.resultobj
         log.info("Starting a communications thread")
-        
+
         while not self.abort:
             try:
-                R.telnet.write("%s\n" % self.command)
+                Tel = telnetlib.Telnet("pele.palomar.caltech.edu", 49300) 
+                Tel.write("%s\n" % self.command)
             except Exception as e:
                 raise TCSReadError(e)
                 
             while True:
 
-                r= R.telnet.read_until("\n", .1)
+                r= Tel.read_until("\n", .1)
                 
                 if r == "":
                     break               
@@ -365,9 +387,9 @@ class GenericCommsThread(Thread):
                 except:
                     log.info("Ignored malformed line:'%s'" % r.rstrip())
                     
-                
+            Tel.close()
             time.sleep(2)
-
+            
                 
         
 class WeatherCommsThread(GenericCommsThread):
@@ -407,10 +429,6 @@ class Weather(HasTraits):
     
     def __init__(self):
         log.info("Weather status thread initalized")
-        try:
-            self.telnet = telnetlib.Telnet(PELE, PELEPORT)
-        except Exception as e:
-            raise TCSConnectionError(e)
         self.comms_thread = WeatherCommsThread()
         self.comms_thread.resultobj = self
 
@@ -454,12 +472,7 @@ class Status(HasTraits):
     
     def __init__(self):
         log.info("Status thread initalized")
-        
-        try:
-            self.telnet = telnetlib.Telnet(PELE, PELEPORT)
-        except Exception as e:
-            raise TCSConnectionError(e)
-            
+                    
         self.comms_thread = StatusCommsThread()
         self.comms_thread.resultobj = self
     

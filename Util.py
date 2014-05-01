@@ -7,6 +7,12 @@ import time
 epy = "c:/users/sedm/appdata/local/enthought/canopy/user/scripts/python.exe"
 sedmpy = "C:/Users/sedm/Dropbox/Python-3.3.0/PCbuild/amd64/python.exe"
 
+rc_server_address    = 'http://127.0.0.1:9001'
+ifu_server_address   = 'http://127.0.0.1:9002'
+tel_server_address   = 'http://127.0.0.1:9003'
+stage_server_address = 'http://127.0.0.1:9004'
+
+
 
 def list_ds9s():
     startupinfo = SP.STARTUPINFO()

@@ -182,17 +182,15 @@ class ExposureThread(Thread):
                         if self.camera.gain == 3: gain = 3.52
                         
             hdr.update("GAIN", gain, 'gain in e-/ADU')
-            if self.camera.stage_connection is not None:
-                try:
-                    hdr.update("IFUFOCUS", 
-                        self.camera.stage_connection.position_query(),
-                        "focus stage position in mm")
-                except CannotSendRequest:
-                    hdr.update("IFUFOCUS", 
-                        self.camera.stage_connection.position_query(),
-                        "focus stage position in mm")
-    
-    
+            try:
+                stage_control = xmlrpclib.ServerProxy(Util.stage_server_address)
+
+                hdr.update("IFUFOCUS", 
+                    stage_control.get_location(),
+                    "focus stage position in mm")
+            except:
+                pass    
+                
             hdr.update("CHANNEL", self.camera.name, "Instrument channel")
             hdr.update("TNAME", self.camera.target_name, "Target name")
             
@@ -300,6 +298,10 @@ class Camera(HasTraits):
     
     go_button = Button("Go")
    
+    def setnumexposures(self, val):
+        self.num_exposures = val
+        return val
+        
     def setreadout(self, val):
         self.readout = val
         return self.readout
@@ -320,7 +322,7 @@ class Camera(HasTraits):
             return False
     
     def isExposureComplete(self):
-        return (self.int_time) < (self.exposure + 3)
+        return (self.int_time) > (self.exposure + 2)
     
     def setobject(self, val):
         self.object = val
@@ -332,7 +334,7 @@ class Camera(HasTraits):
     def getall(self):
         '''For XMLRPCServer, provides access to variables'''
         
-        return (self.name, self.target_name, self.state, self.filename, 
+        return (self.name, self.object, self.state, self.filename, 
             self.gain, self.num_exposures, self.int_time, self.readout, 
             self.amplifier, self.shutter, self.exposure)
 
@@ -437,7 +439,8 @@ def open_camera(name):
     c.connection = connection
     c.status_threads = Status
     if name == 'rc': c.readout = 2
-
+    
+    c.setshutter("normal")
 
     server = SimpleXMLRPCServer(("127.0.0.1", port+1000), logRequests=True)
     print "Serving on port %i" % (port+1000)

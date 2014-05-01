@@ -98,6 +98,9 @@ class Stage(HasTraits):
         self.comms_thread.request_home=True
         return True
         
+    def get_location(self):
+        return self.location
+        
     def reset(self):
         self.comms_thread.request_reset = True
         return True
