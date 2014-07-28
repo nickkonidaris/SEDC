@@ -33,6 +33,8 @@ def fourshot(rc_control, ets = None):
         
     def helper():
         
+        files = []
+        
         cmds = GXN.Commands()
         to_move = np.array([180, 180])
         accu = -to_move[:] # accumulated move
@@ -44,6 +46,7 @@ def fourshot(rc_control, ets = None):
             t.sleep(1)
             to_move = np.array([0,0])
             rc_control.setobject("[r] %s" % name)
+            files.append("[r]: %s" % rc_control.getfilename())
             expose(ets[0])
         
         to_move += np.array([-360,0])
@@ -54,6 +57,7 @@ def fourshot(rc_control, ets = None):
             t.sleep(1)
             to_move = np.array([0,0])
             rc_control.setobject("[i] %s" % name)
+            files.append("[i] %s" % rc_control.getfilename())
             expose(ets[1])
         
         to_move += np.array([0,-360])
@@ -64,6 +68,7 @@ def fourshot(rc_control, ets = None):
             t.sleep(1)
             to_move = np.array([0,0])
             rc_control.setobject("[g] %s" % name)
+            files.append("[g] %s" % rc_control.getfilename())
             expose(ets[2])
         
         to_move += np.array([360,0])
@@ -74,8 +79,13 @@ def fourshot(rc_control, ets = None):
             t.sleep(1)
             to_move = np.array([0,0])
             rc_control.setobject("[u] %s" % name)
+            files.append("[u] %s" % rc_control.getfilename())
             expose(ets[3])
             
         rc_control.setobject("%s" % name)
+        return files
     
-    Thread(target=helper).start()
+    t= Thread(target=helper)
+    t.start()
+    return t.join()
+    

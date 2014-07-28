@@ -1,205 +1,99 @@
-"""
-A tabular editor demo based on the Person/Married Person example in the main
-Traits UI Tabular Editor tutorial.
+from Tkinter import *
 
-This example defines three classes:
-    
- - <b>Person</b>: A single person.
- - <b>MarriedPerson</b>: A married person (subclass of Person).
- - <b>Report</b>: Defines a report based on a list of single and married people.
+import parse, re
+from astropy.table import Table
+
+import Options
+
+# First create application class
  
-It creates a tabular display of 10,000 single and married people showing the 
-following information:
-
- - Name of the person.
- - Age of the person.
- - The person's address.
- - The name of the person's spouse (if any).
-
-In addition:
-
- - It uses a Courier 10 point font for each line in the table.
- - It displays age column right, instead of left, justified.
- - If the person is a minor (age < 18) and married, it displays a red flag
-   image in the age column.
- - If the person is married, it makes the background color for that row a light
-   blue.
  
-This example demonstrates:
-    
- - How to set up a <b>TabularEditor</b>.
- - The display speed of the <b>TabularEditor</b>.
- - How to create a <b>TabularAdapter</b> that meets each of the specified display
-   requirements.
-   
-Additional notes:
-    
- - You can change the current selection using the up and down arrow keys.
- - You can move a selected row up and down in the table using the left and
-   right arrow keys.
-"""
+class Application(Frame):
 
-#-- Imports --------------------------------------------------------------------
+    data = [] # Data is generated from table
+    table = [] # Table is a Table structure from parse
+ 
+    def __init__(self, master=None):
+        Frame.__init__(self, master)
+         
+        self.pack()
+        self.create_widgets()
+     
+    # Create main GUI window
+    def create_widgets(self):
+        self.search_var = StringVar()
+        self.search_var.trace("w", lambda name, index, mode: self.update_list())
+        self.entry = Entry(self, textvariable=self.search_var, width=13)
+        self.lbox = Listbox(self, width=90, height=20, font='Courier')
+        self.refresh_button = Button(self, text="Refresh", command=self.reload_list)
+        self.lbl_outfile = Label(self, text="Outfile: %s  |  Infile: %s" % 
+            (Options.targets_outfile, Options.targets_infile))
+        self.lbox.bind('<<ListboxSelect>>', self.cb_listbox_select)
+         
+        self.entry.grid(row=0, column=0, padx=10, pady=3)
+        self.lbox.grid(row=1, column=0, padx=10, pady=3)
+        self.lbl_outfile.grid(row=2, column=0)
+        self.refresh_button.grid(row=3,column=0)
+         
+        # Function for updating the list/doing the search.
+        # It needs to be called here to populate the listbox.
+        self.update_list()
+     
 
-from os.path \
-    import join, dirname
-    
-from random \
-    import randint, choice, shuffle
+    def reload_list(self):
+        ''' Reload from file in current directory '''
 
-from enthought.traits.api \
-    import HasTraits, Str, Int, List, Instance, Property, Constant, Color
-    
-from enthought.traits.ui.api \
-    import View, Group, Item, Theme, TabularEditor
-    
-from enthought.traits.ui.menu \
-    import NoButtons
-    
-from enthought.traits.ui.tabular_adapter \
-    import TabularAdapter
-
-from enthought.pyface.image_resource \
-    import ImageResource
-    
-#-- Constants ------------------------------------------------------------------
-
-# Necessary because of the dynamic way in which the demos are loaded:
-import enthought.traits.ui.api
-
-search_path = [ join( dirname( enthought.traits.ui.api.__file__ ),
-                      'demo', 'Advanced' ) ]
-
-#-- Person Class Definition ----------------------------------------------------
-
-class Person ( HasTraits ):
-
-    name    = Str
-    address = Str
-    age     = Int
-    
-#-- MarriedPerson Class Definition ---------------------------------------------
-
-class MarriedPerson ( Person ):
-
-    partner = Instance( Person )
-
-#-- Tabular Adapter Definition -------------------------------------------------
-
-class ReportAdapter ( TabularAdapter ):
-
-    columns = [ ( 'Name',    'name' ), 
-                ( 'Age',     'age' ), 
-                ( 'Address', 'address' ),
-                ( 'Spouse',  'spouse' ) ]
-                
-    font                      = 'Courier 10'
-    age_alignment             = Constant( 'right' )
-    MarriedPerson_age_image   = Property
-    MarriedPerson_bg_color    = Color( 0xE0E0FF )
-    MarriedPerson_spouse_text = Property
-    Person_spouse_text        = Constant( '' )
-    
-    def _get_MarriedPerson_age_image ( self ):
-        if self.item.age < 18:
-            return 'red_flag'
-        return None
+        self.table = parse.parse_file2(Options.targets_infile)
+        self.update_list()
+         
         
-    def _get_MarriedPerson_spouse_text ( self ):
-        return self.item.partner.name
+    def cb_listbox_select(self, evt):
+        ''' Listbox select handler --
+            write target to target file'''
+        w = evt.widget
+        try:
+            index = int(w.curselection()[0])
+            value = w.get(index)
+            print "%d: %s" % (index, value)
+            
 
-#-- Tabular Editor Definition --------------------------------------------------
+        except:
+            pass
 
-tabular_editor = TabularEditor(
-    adapter    = ReportAdapter(),
-    operations = [ 'move' ],
-    images     = [ ImageResource( 'red_flag', search_path = search_path ) ]
-)
+        pos,comment = value.split("#")
+        name,ra,dec,epoch= re.split(" +", pos.lstrip().rstrip())
+        
+        outvals = Table([[name],[float(ra)],[float(dec)],[float(epoch)],[comment]],
+            names=('name','RA','Dec','epoch','comment'))
+        
+        outvals['RA'].unit = 'hour'
+        outvals['Dec'].unit = 'degree'
+        outvals['epoch'].unit = 'year'
+        
+        outvals.write(Options.targets_outfile, format="ascii.ipac")
+            
+    def update_list(self):
+        search_term = self.search_var.get()
+     
+        # Just a generic list to populate the listbox
+        self.lbox.delete(0, END)
+     
+        self.data = []
+        for i in xrange(len(self.table)):
+            t = self.table[i]
+            self.data.append("%18s %9.6f %+10.6f %s %s" % 
+                    (t['name'], t['ra'], t['dec'], t['epoch'], " ".join(t['comment'])))
 
-#-- Report Class Definition ----------------------------------------------------
+        for i in xrange(len(self.data)):
+            item = self.data[i]
+            if search_term.lower() in item.lower():
+                self.lbox.insert(i, item)
+ 
+ 
+root = Tk()
+root.geometry("850x400")
+root.title('SED Machine Next Target')
+app = Application(master=root)
+print 'Starting mainloop()'
+app.mainloop()
 
-class Report ( HasTraits ):
-
-    people = List( Person )
-    
-    view = View(
-        Group(
-            Item( 'people', id = 'table', editor = tabular_editor ), 
-            show_labels        = False
-        ),
-        title     = 'Tabular Editor Demo',
-        id        = 'enthought.traits.ui.demo.Applications.tabular_editor_demo',
-        width     = 0.60,
-        height    = 0.75,
-        resizable = True,
-        buttons   = NoButtons
-    )
-
-#-- Generate 10,000 random single and married people ---------------------------
-
-male_names = [ 'Michael', 'Edward', 'Timothy', 'James', 'George', 'Ralph',
-    'David', 'Martin', 'Bryce', 'Richard', 'Eric', 'Travis', 'Robert', 'Bryan',
-    'Alan', 'Harold', 'John', 'Stephen', 'Gael', 'Frederic', 'Eli', 'Scott',
-    'Samuel', 'Alexander', 'Tobias', 'Sven', 'Peter', 'Albert', 'Thomas',
-    'Horatio', 'Julius', 'Henry', 'Walter', 'Woodrow', 'Dylan', 'Elmer' ]
-    
-female_names = [ 'Leah', 'Jaya', 'Katrina', 'Vibha', 'Diane', 'Lisa', 'Jean',
-    'Alice', 'Rebecca', 'Delia', 'Christine', 'Marie', 'Dorothy', 'Ellen',
-    'Victoria', 'Elizabeth', 'Margaret', 'Joyce', 'Sally', 'Ethel', 'Esther',
-    'Suzanne', 'Monica', 'Hortense', 'Samantha', 'Tabitha', 'Judith', 'Ariel',
-    'Helen', 'Mary', 'Jane', 'Janet', 'Jennifer', 'Rita', 'Rena', 'Rianna' ]
-
-all_names = male_names + female_names
-
-male_name   = lambda: choice( male_names )
-female_name = lambda: choice( female_names )
-any_name    = lambda: choice( all_names )
-age         = lambda: randint( 15, 72 )
-
-family_name = lambda: choice( [ 'Jones', 'Smith', 'Thompson', 'Hayes', 'Thomas', 'Boyle',
-    "O'Reilly", 'Lebowski', 'Lennon', 'Starr', 'McCartney', 'Harrison', 
-    'Harrelson', 'Steinbeck', 'Rand', 'Hemingway', 'Zhivago', 'Clemens', 
-    'Heinlien', 'Farmer', 'Niven', 'Van Vogt', 'Sturbridge', 'Washington',
-    'Adams', 'Bush', 'Kennedy', 'Ford', 'Lincoln', 'Jackson', 'Johnson',
-    'Eisenhower', 'Truman', 'Roosevelt', 'Wilson', 'Coolidge', 'Mack', 'Moon',
-    'Monroe', 'Springsteen', 'Rigby', "O'Neil", 'Philips', 'Clinton', 
-    'Clapton', 'Santana', 'Midler', 'Flack', 'Conner', 'Bond', 'Seinfeld',
-    'Costanza', 'Kramer', 'Falk', 'Moore', 'Cramdon', 'Baird', 'Baer', 
-    'Spears', 'Simmons', 'Roberts', 'Michaels', 'Stuart', 'Montague', 
-    'Miller' ] )
-
-address = lambda: '%d %s %s' % ( randint( 11, 999 ), choice( [ 'Spring', 
-    'Summer', 'Moonlight', 'Winding', 'Windy', 'Whispering', 'Falling', 
-    'Roaring', 'Hummingbird', 'Mockingbird', 'Bluebird', 'Robin', 'Babbling',
-    'Cedar', 'Pine', 'Ash', 'Maple', 'Oak', 'Birch', 'Cherry', 'Blossom',
-    'Rosewood', 'Apple', 'Peach', 'Blackberry', 'Strawberry', 'Starlight',
-    'Wilderness', 'Dappled', 'Beaver', 'Acorn', 'Pecan', 'Pheasant', 'Owl' ] ),
-    choice( [ 'Way', 'Lane', 'Boulevard', 'Street', 'Drive', 'Circle', 
-    'Avenue', 'Trail' ] ) )
-   
-people = [ Person( name    = '%s %s' % ( any_name(), family_name() ),
-                   age     = age(),
-                   address = address() ) for i in range( 5000 ) ]
-                     
-marrieds = [ ( MarriedPerson( name    = '%s %s' % ( female_name(), last_name ),
-                              age     = age(),
-                              address = address ),
-               MarriedPerson( name    = '%s %s' % ( male_name(), last_name ),
-                              age     = age(),
-                              address = address ) )
-             for last_name, address in
-                 [ ( family_name(), address() ) for i in range( 2500 ) ] ]
-                 
-for female, male in marrieds:
-    female.partner = male
-    male.partner   = female
-    people.extend( [ female, male ] )
-    
-shuffle( people ) 
-
-# Create the demo:
-demo = Report( people = people )
-
-# Run the demo (if invoked from the command line):
-if __name__ == '__main__':
-    demo.configure_traits()
