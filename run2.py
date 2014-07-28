@@ -10,6 +10,7 @@ import math
 import GXN
 
 import Focus
+import Fourshot
 import Secfocus
 import Util
 
@@ -25,7 +26,7 @@ use_stage = True
 
 pids = []
 
-
+c = GXN.Commands()
 ###
 ###   STARTUP
 ###
@@ -74,18 +75,18 @@ def focus_loop():
         return    
     files = []
     
-    for pos in np.arange(3.3,4.1,.05):
+    for pos in np.arange(3.4,3.8,.1):
         print "Moving to %f...." % pos
         stage_control.set_target(float(pos))
         stage_control.go()
         t.sleep(10)
 
         waitfor()
-
+#
         print "..Moved to %f" % pos
         ifu_control.setreadout(2)
         ifu_control.setshutter('normal')
-        ifu_control.setexposure(25)
+        ifu_control.setexposure(15)
         ifu_control.go()
 
         while ifu_control.isExposing():
@@ -104,7 +105,70 @@ def secfocus(positions=None):
     Secfocus.secfocus(rc_control, positions)
 
 def fourshot(ets = None):
-    Fourshot.fourshot(ets)
+    Fourshot.fourshot(rc_control, ets)
+
+
+abort_abcd = False
+def ABCD():
+    global abort_abcd    
+    def expose():
+        global abort_abcd
+        if abort_abcd: return
+        
+        while (rc_control.isExposing()) or (ifu_control.isExposing()):
+            t.sleep(0.5)
+            
+        rc_control.setnumexposures(5)
+        rc_control.setexposure(60)
+        ifu_control.setnumexposures(1)
+        ifu_control.setexposure(300)
+        ifu_control.setreadout(2.0)
+        
+        rc_control.go()
+        ifu_control.go()
+        
+        t.sleep(5)
+        
+        while (not rc_control.isExposureComplete()) or (not 
+            ifu_control.isExposureComplete()):
+            t.sleep(0.5)
+            
+            
+    def helper():
+        obj_ifu = ifu_control.getall()[1]
+        obj_rc = rc_control.getall()[1]
+        cmds = GXN.Commands()
+        
+        # A
+        ifu_control.setobject("%s [A]" % obj_ifu)
+        rc_control.setobject("%s [A]" % obj_rc)
+        expose()
+        cmds.pt(0,-5)
+
+        # B
+        ifu_control.setobject("%s [B]" % obj_ifu)
+        rc_control.setobject("%s [B]" % obj_rc)
+        expose() 
+        cmds.pt(5, 0)
+        
+        # C
+        ifu_control.setobject("%s [C]" % obj_ifu)
+        rc_control.setobject("%s [C]" % obj_rc)
+        expose()
+        cmds.pt(0,5)
+
+        # D
+        ifu_control.setobject("%s [D]" % obj_ifu)
+        rc_control.setobject("%s [D]" % obj_rc)
+        expose() 
+        cmds.pt(-5, 0)
+        
+        ifu_control.setobject("%s" % obj_ifu)
+        rc_control.setobject("%s" % obj_rc)
+
+    
+    Thread(target=helper).start()
+
 
 
 def AB(n_times):

@@ -4,9 +4,9 @@ import numpy as np
 import pyfits as pf
 
 
-def rc_focus_check(last_n=5):
+def rc_focus_check(last_n=7):
     
-    path = "s:\\2013jun19\\"
+    path = "s:\\2014may03\\"
     files = os.listdir(path)
     
     
@@ -19,7 +19,7 @@ def rc_focus_check(last_n=5):
         F = pf.open(f)
         
         dat,hdr = F[0].data, F[0].header
-        sort = np.sort(dat.flatten())
+        sort = np.sort(dat[1300:1600,1300:1600].flatten())
         a,b = np.floor(len(sort)*.03), np.ceil(len(sort)*.97)
         metric = (sort[b]-sort[a])/np.median(sort)
         fpos.append(hdr["secfocus"])

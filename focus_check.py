@@ -17,10 +17,10 @@ def analyize_files(files):
         PHDU = f[0]
         
         header,data = PHDU.header, PHDU.data
-        #try: focus = header["IFUFOCUS"]
-        #except: continue
+        try: focus = header["IFUFOCUS"]
+        except: continue
         
-        
+        focuss.append(focus)
         sort = np.sort(data.flatten())
         s1 = np.sort(data[:1024,:1024].flatten())
         s2 = np.sort(data[:1024,1024:].flatten())
@@ -44,4 +44,4 @@ def analyize_files(files):
         
         
         
-    return  metric, q1, q2, q3, q4
+    return  focuss, metric, q1, q2, q3, q4

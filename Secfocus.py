@@ -13,7 +13,7 @@ def secfocus(rc_control, positions = None):
     global abort_focus, files
     
     if positions is None:
-        positions = np.arange(13.8, 14.0, 0.1)
+        positions = np.arange(14, 14.3, 0.06)
         
     def expose():
         if abort_focus: return
@@ -32,7 +32,6 @@ def secfocus(rc_control, positions = None):
         print "to %s" % pos_mm
         cmd = GXN.Commands()
         cmd.gofocus(pos_mm)
-        t.sleep(10)
 
 
     def helper():
@@ -68,7 +67,7 @@ def analyze():
     pl.figure(1)
     for fname in files:
         FF = pf.open(fname)
-        im = FF[0].data[1200:1800 , 1200:1800]
+        im = FF[0].data[1300:1600 , 1400:1800]
         
         pl.figure()
         pl.imshow(im)

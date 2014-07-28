@@ -141,7 +141,13 @@ class Commands:
         
         log.info("GXN stow flats")
         T = self.write("stow 0.0 85.0 90\n", slow=True)
+        return self.slow(300, T)
+    
+    def stow_twilight(self):
+        '''Stow to flat position, block for 300 s'''
         
+        log.info("GXN stow flats")
+        T = self.write("stow 0.0 85.0 355\n", slow=True)
         return self.slow(300, T)
     
     def lamps_on(self):
