@@ -14,6 +14,7 @@ import Fourshot
 import Secfocus
 import Util
 
+import Options
 import gui, stage_gui, Telescope_server
 
 reload(Telescope_server)
@@ -48,9 +49,9 @@ pids.append(tel_pid)
 pids.append(stage_gui_pid)
 t.sleep(12)
 
-rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:9001")
-ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:9002")
-tel_control = xmlrpclib.ServerProxy("http://127.0.0.1:9003")
+rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
+ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
+tel_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.tel_port)
 stage_control = xmlrpclib.ServerProxy(Util.stage_server_address)
 
 rc_control.show()
