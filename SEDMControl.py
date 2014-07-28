@@ -83,6 +83,10 @@ class SEDMControl(HasTraits):
             Item(name='go_focus'),
             Item("_"),
             Item(name='go_x'),
+            Item("_"),
+            Item(name='calib_type'),
+            Item(name='go_calib_ifu'),
+            Item(name='go_calib_rc'),            
 
             width=400)
         
