@@ -20,7 +20,7 @@ abort_nod = False
 files = []
 
 def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
-    throw_distance = 5):
+    throw_distance = -7):
     global abort_nod, rc_files, ifu_files
     
     ''' nodder -> [filenames]
@@ -59,7 +59,7 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
     else:
         nods = [(0,0)]
     
-    n_rc_exp = int(exp_time / 30)
+    n_rc_exp = int(exp_time / 33)
     if n_rc_exp == 0: n_rc_exp = 1
     rc_files = []
     ifu_files = []
@@ -89,8 +89,7 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
         ifu_control.go() ; rc_control.go()
         
         print "Wait"
-        while (not rc_control.isExposureComplete()) or (not 
-            ifu_control.isExposureComplete()):
+        while (not rc_control.isExposureComplete()) or ifu_control.isExposing():
             t.sleep(1)
 
         rc_files.append((rc_control.getfilename(), position))
