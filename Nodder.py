@@ -19,21 +19,44 @@ from collections import namedtuple
 abort_nod = False
 files = []
 
-def nodder(target_name, rc_control, ifu_control, exp_time, positions = None):
+def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
+    throw_distance = 5):
     global abort_nod, rc_files, ifu_files
     
+    ''' nodder -> [filenames]
+    nods the telescope takes ifu and rc images simultaneously according to the
+    dither pattern.
+    
+    Args:
+        target_name -- name of target
+        rc_control -- camera_control_gui instance controlling RC
+        ifu_control -- camera_control_gui instance controlling IFU
+        exp_time -- exposure time in sec
+        positions -- dither pattern string. Either: ABCD, AB, or A
+        throw_distance -- amount to nod in arcsec
+    
+    Returns:
+        obsfile -- named tuple of obsfiles with list of files for
+            RC (in .rc) or IFU (in .ifu)
+            
+    Results:
+        Moves telescope according to dither pattern.
+        
+    Todo:
+        Parameterize throw distance 
+    '''
     
     
     if positions == 'ABCD':
         nods = [( 0, 0),
-                ( 0, 5),
-                (-5, 0)
-                ( 0,-5),
-                ( 5, 0)]
+                ( 0, throw_distance),
+                (-throw_distance, 0)
+                ( 0,-throw_distance),
+                ( throw_distance, 0)]
     elif positions == 'AB':
         nods = [( 0, 0),
-                ( 0, 5),
-                ( 0, -5)]
+                ( 0, throw_distance),
+                ( 0, -throw_distance)]
     else:
         nods = [(0,0)]
     

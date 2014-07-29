@@ -22,6 +22,8 @@ def secfocus(rc_control, positions = None):
         while rc_control.isExposing():
             t.sleep(0.2)
         
+        files.append(rc_control.getfilename())
+        
         rc_control.go()
         t.sleep(5)
         
@@ -45,7 +47,7 @@ def secfocus(rc_control, positions = None):
             gof(pos)
             rc_control.setobject("Focus: %s" % pos)
             expose()
-            files.append(rc_control.getfilename())
+            
             
         while rc_control.isExposing():
             t.sleep(0.2)

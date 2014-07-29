@@ -107,6 +107,8 @@ class ExposureThread(Thread):
         
     def run(self):
         nexp = self.camera.num_exposures
+        filenames = []
+        
         while self.camera.num_exposures > 0:
             
             hdrvalues_to_update = []
@@ -126,6 +128,8 @@ class ExposureThread(Thread):
                 return
                 
             self.camera.filename = filename
+            filenames.append(filename)
+            
             self.camera.state = "Updating Fits %s" % filename
             try:
                 hdus = pf.open(filename)
@@ -258,7 +262,8 @@ class ExposureThread(Thread):
         self.camera.num_exposures = 1
         self.camera.state = "Idle"
         if nexp > 1: play_sound("SystemExclamation")
-
+    
+        return filenames
         
 class Camera(HasTraits):
     '''Exposure Control'''  
@@ -376,6 +381,7 @@ class Camera(HasTraits):
             self.exposure_thread = ExposureThread()
             self.exposure_thread.camera = self
             self.exposure_thread.start()
+            return self.exposure_thread.join()
         
         return True
     
