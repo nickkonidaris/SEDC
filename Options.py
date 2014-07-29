@@ -4,16 +4,15 @@
 SED Machine options '''
 
 
-TESTING = True
+TESTING = False
 
 # Logging
 obs_log_path = "/users/npk/obslog.txt"
 
 # Targets.py
 # These options have to do with the target list
-targets_outfile = "/users/npk/output.tbl"
-targets_infile = "/Users/npk/Documents/P60_control/lines.txt"
-
+targets_outfile = "c:/sedm/output.tbl"
+targets_infile = "c:/sedm/targets.txt"
 
 # Servers
 global_port = 6565
