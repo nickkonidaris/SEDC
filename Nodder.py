@@ -36,8 +36,7 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
         throw_distance -- amount to nod in arcsec
     
     Returns:
-        obsfile -- named tuple of obsfiles with list of files for
-            RC (in .rc) or IFU (in .ifu)
+        2-tuple of list- (list IFU file names, list RC file names)
             
     Results:
         Moves telescope according to dither pattern.
@@ -50,7 +49,7 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
     if positions == 'ABCD':
         nods = [( 0, 0),
                 ( 0, throw_distance),
-                (-throw_distance, 0)
+                (-throw_distance, 0),
                 ( 0,-throw_distance),
                 ( throw_distance, 0)]
     elif positions == 'AB':
@@ -60,10 +59,12 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
     else:
         nods = [(0,0)]
     
-    n_rc_exp = int(exp_time / 60)
+    n_rc_exp = int(exp_time / 30)
+    if n_rc_exp == 0: n_rc_exp = 1
     rc_files = []
     ifu_files = []
     
+    print nods
     def expose(position):
         '''
         expose-- Helps with nod exposure
@@ -74,54 +75,63 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
         '''
         if abort_nod: return
         
-        record_file = False
+
         while (rc_control.isExposing()) or (ifu_control.isExposing()):
-            record_file=True
-            t.sleep(0.5)
-            
-        if record_file:
-            rc_files.append((rc_control.getfilename(), position))
-            ifu_files.append((ifu_control.getfilename(), position))
+            t.sleep(1)
         
-        rc_gui.num_exposures = n_rc_exp
-        rc_gui.setexposure(60)
+        rc_control.setnumexposures(n_rc_exp)
+        rc_control.setexposure(30)
         ifu_control.setexposure(exp_time)
+        ifu_control.setnumexposures(1)
         
-        rc_control.go()
-        ifu_control.go()
+
+        print "Exposures beginning"
+        ifu_control.go() ; rc_control.go()
         
-        t.sleep(5)
-        
+        print "Wait"
         while (not rc_control.isExposureComplete()) or (not 
             ifu_control.isExposureComplete()):
-            t.sleep(0.5)
+            t.sleep(1)
 
+        rc_files.append((rc_control.getfilename(), position))
+        ifu_files.append((ifu_control.getfilename(), position))
         
     def helper():
-        
+        gxn_cmd = GXN.Commands()
         for i in xrange(len(positions)):
             position = positions[i]
             nod = nods[i]
-
-            gxn_cmd.pt(*position)
+            
+            print "Handling %s @ %s" % (position, nod)
+            gxn_cmd.pt(*nod)
+            t.sleep(5)
                                 
-            ifu_gui.object = "%s [%s]" % (target_name, position)
-            rc_gui.object = "%s [%s]" % (target_name, position)
-            expose()
+            ifu_control.setobject("%s [%s]" % (target_name, position))
+            rc_control.setobject("%s [%s]" % (target_name, position))
+            expose(position)
 
-        gxn_cmd.pt(*positions[-1])
+        gxn_cmd.pt(*nods[-1])
         
-        ifu_gui.object = "%s" % target_name
-        rc_gui.object = "%s" % target_name
+        ifu_control.setobject("%s" % target_name)
+        rc_control.setobject("%s" % target_name)
         
-        obsfiles = namedtuple("obsfiles", (ifu, rc))
-        
-        return obsfiles(ifu=ifu_files, rc=rc_files)
+        print "Wait for end"
+        while rc_control.isExposing() or ifu_control.isExposing():
+            t.sleep(0.5)
 
-    
+        rcf = rc_control.getfilename()
+        ifuf = ifu_control.getfilename()
+        if rcf != rc_files[-1][0]: rc_files.append((rcf,position))
+        if ifuf != ifu_files[-1][0]: ifu_files.append((ifuf,position))
+
+
+
     T = Thread(target=helper)
     T.start()
-    return T.join()
+    T.join()
+    
+    print "Finished"
+    return (ifu_files, rc_files)
 
 
     

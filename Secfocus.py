@@ -58,11 +58,16 @@ def secfocus(rc_control, positions = None):
     rc_control.setexposure(10.)    
     T = Thread(target=helper)
     T.start()
+    T.join()
+    
+    return files
+    
+
 
 abort_4 = False
 
-def analyze():
-    global files
+def analyze(files):
+    pl.ion()
     
     fpos = []
     res = []
@@ -73,14 +78,15 @@ def analyze():
         
         pl.figure()
         pl.imshow(im)
-        fpos.append(FF[0].header['secfocus'])
+        ignore, pos= FF[0].header['object'].split(":")
+        fpos.append(float(pos))
         res.append(np.max(im) - np.min(im))
     
     pl.figure(1)
     pl.clf()
     pl.plot(fpos,res,'o')
         
-        
+    pl.show()
     
     
     

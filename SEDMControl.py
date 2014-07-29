@@ -1,3 +1,11 @@
+import logging
+
+logger = logging.getLogger("SEDMControl")
+logging.basicConfig(level=logging.INFO,
+    filename="s:/logs/obslog.txt",
+    filemode="a",
+    format = "%(message)s    [%(asctime)-15s] %(name)s")
+
 
 from traits.api import *
 from traitsui.api import View, Item, Handler
@@ -24,11 +32,11 @@ import Options
 import xmlrpclib 
 import Secfocus, Fourshot, Nodder
 
-import logging
 
 import Util
 
 import pyfits as pf
+
 
 
 reload(Secfocus)
@@ -73,7 +81,7 @@ def test_exposure(controller, itime):
     controller.setexposure(itime)
     fn = controller.go() [0]
     
-    logging.info("%s -- test exposure" % fn)
+    logger.info("%s -- test exposure" % fn)
     
     return evaluate_file_for_cnts(fn)
     
@@ -95,11 +103,11 @@ class SEDMControl(HasTraits):
     cam_exp_time = Array(np.float,[4])
     
     # Spectrograph exposure time in s + number of IFU exposures to take
-    spec_exp_time = Float(0)
-    n_spec = Int(0)
+    spec_exp_time = Float(5)
+    n_spec = Int(1)
     
     # Dithering pattern
-    pattern = Enum(['ABCD', 'AB', 'A'])
+    pattern = Enum(['ABCD', 'A', 'AB'])
     
     # Focus controls
     focus_range = String("13.8, 14.1, 0.1")
@@ -120,6 +128,7 @@ class SEDMControl(HasTraits):
     go_x=Button("X here")
     go_calib=Button("Calibration")
     go_stow=Button("Telescope")
+    toifu=Button("To IFU")
     
     def show(self):
         '''show: establishes the GUI layout'''
@@ -128,6 +137,7 @@ class SEDMControl(HasTraits):
             Item(name="position"),
             Item(name="comment"),
             Item(name="go_next_field_button"),
+            Item(name="toifu"),
             Item("_"),
             Item(name="cam_exp_time"),
             Item(name="take_rc_button"),
@@ -153,24 +163,25 @@ class SEDMControl(HasTraits):
         
         self.configure_traits(view=c_view)
         
+    
+    def _go_x_fired(self):
+        ''' X at current location '''
         
     def _go_conf_fired(self):
-        ''' Take a 30-s confirmation image, returns after 32 s '''
+        ''' Take a confirmation image '''
         
         rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
         
 
         rc_control.setnumexposures(1)
-        rc_control.set_shutter('normal')
-        rc_control.setexposure(30)
-        rc_control.setobject("%s [%s] confirmation" % (self.location, self.position))
+        rc_control.setobject("%s [%s] finding" % (self.location, self.position))
         
         rc_control.go()
         
-        while not rc_control.isExposing():
+        while  rc_control.isExposing():
             time.sleep(1)
         
-        logging.info("%s - 30 s confirmation image" % rc_control.getfilename())
+        logger.info("%s - finding image" % rc_control.getfilename())
 
     def _take_spectra_button_fired(self):
         ''' Takes rc + ifu spectra '''
@@ -178,14 +189,16 @@ class SEDMControl(HasTraits):
         ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
 
         
-        files = Nodder.nodder(self.location, rc_control, ifu_control, spec_exp_time,
+        files = Nodder.nodder(self.location, rc_control, ifu_control, 
+            self.spec_exp_time,
             positions=self.pattern)
-            
-        for rc in files.rc:
-            logging.info("%s [science Rc]" % rc)
         
-        for ifu in files.ifu:
-            logging.info("%s [science IFU]" % ifu)
+        print files, "------ HERE"
+        for rc in files[1]:
+            logger.info("%s @ %s [science Rc]" % (rc[0], rc[1]))
+        
+        for ifu in files[0]:
+            logger.info("%s @ %s [science IFU]" % (ifu[0], ifu[1]))
 
     def connect_global_server(self):
         ''' returns a xmlrpc object connected to the global server'''
@@ -203,43 +216,60 @@ class SEDMControl(HasTraits):
         files = Fourshot.fourshot(rc_control)
         
         for t in files:
-            logging.info("%s -- fourshot" % t)
+            logger.info("%s -- fourshot" % t)
         
         
     def _go_next_field_button_fired(self):
         ''' Go to next field button fired '''
         t = Table.read(Options.targets_outfile, format='ascii.ipac')[0]
 
-        gs = self.connect_global_server()
+        cmds = GXN.Commands()           
         self.comment = str(t['comment'])
         self.location = "OTW: %s" % str(t['name'])
         self.position = "on the way"
-
-        gs.moveto(      str(t['name']),
-                        float(t['RA']),
-                        float(t['Dec']),
-                        float(t['epoch']))
         
-        self.location = "%s" % str(t['name'])
+        ra = float(t['RA'])
+        dec= float(t['Dec'])
+        nm = str(t['name'])
+        epoch = float(t['epoch'])
+        cmds.coords(ra, dec, epoch, 0,0,0, name=nm)
+        cmds.go()
+
+        self.location = "%s" % nm
         self.position = "r"
         
-        logging.info("--- Move to %s ---" % t['name'])
-        logging.info("%s %s (%s)" % (t['name'], t['RA'], t['Dec'], t['epoch']))
+        rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
+        ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
         
+        rc_control.setobject("%s [r]" % (nm))
+        ifu_control.setobject("%s [r]" % (nm))
         
+        logger.info("--- Move to %s ---" % t['name'])
+        logger.info("%s %s %s (%s)" % (nm, ra, dec, epoch))
+        
+    def _toifu_fired(self):
+        
+        c = GXN.Commands()
+        c.pt(-120, -120)
+        self.position = 'ifu'
+        rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
+        ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
+
+        rc_control.setobject("%s [ifu]" % self.location)
+        ifu_control.setobject("%s [ifu]" % self.location)
         
     def _go_focus_fired(self):
         ''' Secondary mirror focus requested'''
         rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
         
-        mn,mx,df = self.focus_range.split(",")
-        logging.info("Starting focus over %s,%s,%s" % (mn,mx,df))
+        mn,mx,df = map(float,self.focus_range.split(","))
+        logger.info("Starting focus over %s,%s,%s" % (mn,mx,df))
         positions = np.arange(mn,mx,df)
         files = Secfocus.secfocus(rc_control, positions)
         print files
         
         for f in files:
-            logging.info("%s -- focus loop" % f)
+            logger.info("%s -- focus loop" % f)
             
         Secfocus.analyze(files)
 
@@ -257,7 +287,7 @@ class SEDMControl(HasTraits):
             Options.ifu_port)
             
         if self.calib_type == 'bias':
-            logging.info("--- Taking bias frames ---")
+            logger.info("--- Taking bias frames ---")
             rc_control.setshutter('closed')
             rc_control.setobject('Calib: bias')
 
@@ -270,19 +300,19 @@ class SEDMControl(HasTraits):
             ifu_control.setobject('Calib: bias')
             ifu_files = ifu_control.go()        
             
-            logging.info(rc_files)
-            logging.info(ifu_files)
+            logger.info(rc_files)
+            logger.info(ifu_files)
         
         if self.calib_type == 'dome':
-            logging.info("--- Taking dome lamps with 120 s warmup ---")
-
+            logger.info("--- Taking dome lamps with 120 s warmup ---")
+            cmds = GXN.Commands()
             cmds.lamps_on()
             time.sleep(120)
             
             new_rc_itime = test_exposure(rc_control, 5)            
-            logging.info("    New RC itime is %s" % new_rc_itime)
+            logger.info("    New RC itime is %s" % new_rc_itime)
             new_ifu_itime = test_exposure(ifu_control, 15)            
-            logging.info("    New IFU itime is %s" % new_ifu_itime)
+            logger.info("    New IFU itime is %s" % new_ifu_itime)
                
             # now handle real exposures            
             rc_control.setnumexposures(10)
@@ -291,7 +321,7 @@ class SEDMControl(HasTraits):
             rc_files = rc_control.go()
             
             for fn in rc_files:
-                logging.info("%s -- rc lamp" % fn)
+                logger.info("%s -- rc lamp" % fn)
                 
             
             ifu_control.setobject('Calib: dome lamp')
@@ -301,41 +331,48 @@ class SEDMControl(HasTraits):
             ifu_files = ifu_control.go()
             
             for fn in ifu_files:
-                logging.info("%s -- ifu lamp" % fn)
+                logger.info("%s -- ifu lamp" % fn)
                  
             
             cmds.lamps_off()
             time.sleep(10)
-            logging.info("--- Dome flats off ---")
+            logger.info("--- Dome flats off ---")
 
             
     def _go_stow_fired(self):
         if self.telescope_position == 'flat stow':
-            logging.info("--- Flat stow position ")
+            logger.info("--- Flat stow position ")
+            cmds = GXN.Commands()
             cmds.stow_flats()
             
         elif self.telescope_position == 'twilight stow':
-            logging.info("--- Twilight stow position ")
+            logge.info("--- Twilight stow position ")
+            cmds = GXN.Commands()
             cmds.stow_flats()
         
         elif self.telescope_position == 'day stow':
-            logging.info("--- Day stow position ")
+            logger.info("--- Day stow position ")
+            cmds = GXN.Commands()
             cmds.stow_day()
             
         elif self.telescope_position == 'open':
-            logging.info("--- DOME OPEN ")
+            logger.info("--- DOME OPEN ")
+            cmds = GXN.Commands()
             cmds.open_dome()
 
         elif self.telescope_position == 'close':
-            logging.info("--- DOME CLOSE ")
+            logger.info("--- DOME CLOSE ")
+            cmds = GXN.Commands()
             cmds.close_dome()
+            
+            
 
 
 if __name__ == '__main__':
+
+
     
-    logging.basicConfig(filename = os.path.join(Options.obs_log_path, "obslog.txt"),
-        level=logging.INFO)
-    
-    logging.info("LOG STARTING")
+
+    logger.info("LOG STARTING")
     C = SEDMControl()
     C.show()

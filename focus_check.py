@@ -10,6 +10,7 @@ def analyize_files(files):
     q2 = []
     q3 = []
     q4 = []
+    mns =[]
     
     for file in files:
         print file
@@ -27,7 +28,7 @@ def analyize_files(files):
         s3 = np.sort(data[1024:,:1024].flatten())
         s4 = np.sort(data[1024:,1024:].flatten())
         
-        a,b = np.floor(len(sort)*.03), np.ceil(len(sort)*.9999)
+        a,b = np.floor(len(sort)*.001), np.ceil(len(sort)*.999)
         
         
         
@@ -41,7 +42,8 @@ def analyize_files(files):
         q2.append(s2[b]-s2[a])
         q3.append(s3[b]-s3[a])
         q4.append(s4[b]-s4[a])
+        mns.append(np.mean(s4))
         
         
         
-    return  focuss, metric, q1, q2, q3, q4
+    return  focuss, metric, q1, q2, q3, q4, mns

@@ -42,17 +42,21 @@ rc_gui_pid = s.Popen([epy, "c:/sw/sedm/camera_control_gui.py", "-rc"])
 ifu_gui_pid = s.Popen([epy, "c:/sw/sedm/camera_control_gui.py", "-ifu"])
 offset_gui_pid = s.Popen([epy, "c:/sw/sedm/Offsets.py"])
 stage_gui_pid = s.Popen([epy, "c:/sw/sedm/stage_server.py"])
+sedm_control_pid = s.Popen([epy, "c:/sw/sedm/SEDMControl.py"])
+
 pids.append(rc_gui_pid)
 pids.append(ifu_gui_pid)
 pids.append(offset_gui_pid)
 pids.append(tel_pid)
 pids.append(stage_gui_pid)
+pids.append(sedm_control_pid)
 t.sleep(12)
 
 rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
 ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
 tel_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.tel_port)
 stage_control = xmlrpclib.ServerProxy(Util.stage_server_address)
+
 
 rc_control.show()
 ifu_control.show()
@@ -76,7 +80,7 @@ def focus_loop():
         return    
     files = []
     
-    for pos in np.arange(3.4,3.8,.1):
+    for pos in np.arange(3.0,3.7,.1):
         print "Moving to %f...." % pos
         stage_control.set_target(float(pos))
         stage_control.go()
@@ -87,7 +91,7 @@ def focus_loop():
         print "..Moved to %f" % pos
         ifu_control.setreadout(2)
         ifu_control.setshutter('normal')
-        ifu_control.setexposure(15)
+        ifu_control.setexposure(3.5)
         ifu_control.go()
 
         while ifu_control.isExposing():

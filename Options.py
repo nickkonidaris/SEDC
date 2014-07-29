@@ -7,7 +7,7 @@ SED Machine options '''
 TESTING = False
 
 # Logging
-obs_log_path = "/users/npk/obslog.txt"
+obs_log_path = "c:/sedm/logs/"
 
 # Targets.py
 # These options have to do with the target list

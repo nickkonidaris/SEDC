@@ -125,7 +125,7 @@ class ExposureThread(Thread):
                 IT.stop = True
             except:
                 self.camera.state = "Exposure Failed due to communications problem"
-                return
+                return False
                 
             self.camera.filename = filename
             filenames.append(filename)
@@ -137,7 +137,7 @@ class ExposureThread(Thread):
                 hdr.update("OBJECT",self.camera.object)
             except:
                 self.camera.state = "Could not open raw fits"
-                return
+                return False
             
 
             for el in hdrvalues_to_update:
@@ -241,7 +241,7 @@ class ExposureThread(Thread):
                 print e
                 self.camera.state = "Rename %s to %s failed" % (filename, tempname)
                 play_sound("SystemExclamation")
-                return
+                return False
             
             try:
                 new_hdu.writeto(filename)
@@ -249,7 +249,7 @@ class ExposureThread(Thread):
                 os.rename(tempname, filename)
                 self.camera.state = "Could not write extension [2]"
                 play_sound("SystemExclamation")
-                return
+                return False
                 
 
             play_sound("SystemAsterix")    
@@ -378,10 +378,11 @@ class Camera(HasTraits):
             except Exception as e:
                 pass
 
+            print "Exposing.."
             self.exposure_thread = ExposureThread()
             self.exposure_thread.camera = self
             self.exposure_thread.start()
-            return self.exposure_thread.join()
+            return True
         
         return True
     

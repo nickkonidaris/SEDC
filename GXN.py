@@ -10,7 +10,7 @@ from threading import Thread
 import telnetlib
 from traits.api import *
 import time
-import logging as log
+import logging 
 
 import astropy
 from astropy.coordinates import Angle
@@ -18,9 +18,11 @@ from astropy.coordinates import Angle
 PELE = "198.202.125.194"
 PELEPORT = 49300
 
-log.basicConfig(filename="C:\\sedm\\logs\\rcrc.txt",
+logging.basicConfig(filename="C:\\sedm\\logs\\GXN.txt",
     format="%(asctime)s-%(filename)s:%(lineno)i-%(levelname)s-%(message)s",
-    level = log.DEBUG)
+    level = logging.DEBUG)
+
+log = logging.getLogger("GXN")
 
 class TCSConnectionError(Exception):
     def __init__(self, value):
@@ -87,7 +89,7 @@ class Commands:
     def slow(self, timeout, T):
         '''Handle a slow command block until timeout'''
         # A slow command is defined by John Henning as a blocking command.
-        log.info("Handling slow command")
+        #log.info("Handling slow command")
         try:
             r = T.expect(["-?\d"], timeout)[2]
         except Exception as e:
@@ -95,7 +97,7 @@ class Commands:
             log.error("GXN Slow command returned garbage")
             return
  
-        log.info("Returned: %s" % r)
+        #log.info("Returned: %s" % r)
         try: res = int(r)
         except:
             log.error("GXN Command timed out")
