@@ -327,7 +327,7 @@ class Camera(HasTraits):
             return False
     
     def isExposureComplete(self):
-        return (self.int_time) > (self.exposure + 2)
+        return (self.int_time) > (self.exposure + 1.5)
     
     def setobject(self, val):
         self.object = val
