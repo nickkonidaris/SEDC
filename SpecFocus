@@ -1,0 +1,42 @@
+
+import time as t
+
+
+def focus_loop(stage_control, ifu_control):
+    
+    def waitfor():
+        t.sleep(3)
+        while not stage_control.get_is_ready():
+            t.sleep(.2)
+    
+    print "Starting focus loop"
+    stage_control.request_focus(True)
+
+    
+    if not stage_control.get_is_ready():
+        print "Stage not homed"
+        return    
+    files = []
+    
+    for pos in np.arange(3.0,3.7,.1):
+        print "Moving to %f...." % pos
+        stage_control.set_target(float(pos))
+        stage_control.go()
+        t.sleep(10)
+
+        waitfor()
+#
+        print "..Moved to %f" % pos
+        ifu_control.setreadout(2)
+        ifu_control.setshutter('normal')
+        ifu_control.go()
+
+        while ifu_control.isExposing():
+            t.sleep(0.2)
+        
+        files.append(ifu_control.getfilename())
+        
+    stage_control.request_focus(False)
+    print files
+    
+    return files

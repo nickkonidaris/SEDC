@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO,
 
 
 from traits.api import *
-from traitsui.api import View, Item, Handler
+from traitsui.api import View, Item, Group,Handler
 
 from threading import Thread, Timer
 
@@ -54,18 +54,18 @@ def evaluate_file_for_cnts(filename):
     exptime = FF[0].header['exptime']
     
     # Check median range
-    bias = np.median(dat[2047,:])
+    bias = np.median(dat[:,2047])
     
     dat -= bias
     fdat = np.reshape(dat, dat.shape[0]*dat.shape[1])
     sfdat = np.sort(fdat)
     val = sfdat[-30]
     
-    if 20000 < val < 40000:
+    if 10000 < val < 40000:
         return exptime
     
     else:
-        return exptime * 30000./val
+        return exptime * 12000./val
         
     
 def test_exposure(controller, itime):
@@ -79,7 +79,12 @@ def test_exposure(controller, itime):
     controller.setshutter('normal')
     controller.setnumexposures(1)
     controller.setexposure(itime)
-    fn = controller.go() [0]
+    controller.go()
+    
+    while controller.isExposing():
+        time.sleep(1)
+        
+    fn = controller.getfilename()
     
     logger.info("%s -- test exposure" % fn)
     
@@ -133,11 +138,12 @@ class SEDMControl(HasTraits):
     def show(self):
         '''show: establishes the GUI layout'''
         c_view  = View(
-            Item(name="location"),
-            Item(name="position"),
-            Item(name="comment"),
-            Item(name="go_next_field_button"),
-            Item(name="toifu"),
+            Group(
+                Item(name="location"),
+                Item(name="position"),
+                Item(name="comment"),
+                Item(name="go_next_field_button"),
+                Item(name="toifu"),),
             Item("_"),
             Item(name="cam_exp_time"),
             Item(name="take_rc_button"),
@@ -295,7 +301,7 @@ class SEDMControl(HasTraits):
             rc_control.setexposure(0)
             rc_files = rc_control.go()
             ifu_control.setshutter('closed')
-            ifu_control.setnumexposures(10)
+            ifu_control.setnumexposures(30)
             ifu_control.setexposure(0)
             ifu_control.setobject('Calib: bias')
             ifu_files = ifu_control.go()        
@@ -304,11 +310,13 @@ class SEDMControl(HasTraits):
             logger.info(ifu_files)
         
         if self.calib_type == 'dome':
-            logger.info("--- Taking dome lamps with 120 s warmup ---")
+            logger.info("--- Taking dome lamps with 5 s warmup ---")
             cmds = GXN.Commands()
             cmds.lamps_on()
-            time.sleep(120)
+            time.sleep(5)
             
+            ifu_control.setobject('Calib: dome lamp- test')
+            rc_control.setobject('Calib: dome lamp- test')
             new_rc_itime = test_exposure(rc_control, 5)            
             logger.info("    New RC itime is %s" % new_rc_itime)
             new_ifu_itime = test_exposure(ifu_control, 15)            
@@ -316,19 +324,24 @@ class SEDMControl(HasTraits):
                
             # now handle real exposures            
             rc_control.setnumexposures(10)
+            rc_control.setobject('Calib: dome lamp')
+            rc_control.setexposure(float(new_rc_itime))
+            rc_control.go()
+            time.sleep(1)
             ifu_control.setobject('Calib: dome lamp')
-            rc_control.setexposure(new_rc_itime)
-            rc_files = rc_control.go()
+            ifu_control.setnumexposures(3)
+            ifu_control.setexposure(int(new_ifu_itime))
+            ifu_control.go()
             
+            while rc_control.isExposing() or ifu_control.isExposing():
+                time.sleep(1)
+                
+            rc_files = rc_control.getfilenames()
             for fn in rc_files:
                 logger.info("%s -- rc lamp" % fn)
                 
-            
-            ifu_control.setobject('Calib: dome lamp')
-
-            ifu_control.setnumexposures(10)
-            rc_control.setexposure(new_ifu_itime)
-            ifu_files = ifu_control.go()
+        
+            ifu_files = ifu_control.getfilenames()
             
             for fn in ifu_files:
                 logger.info("%s -- ifu lamp" % fn)
@@ -338,6 +351,77 @@ class SEDMControl(HasTraits):
             time.sleep(10)
             logger.info("--- Dome flats off ---")
 
+        if self.calib_type == 'Xe':
+            logger.info("--- Taking Xe lamps with 15 s warmup ---")
+            cmds = GXN.Commands()
+            #cmds.lamps_on()
+            time.sleep(15)
+            
+            ifu_control.setobject('Calib: Xe lamp- test')
+            rc_control.setobject('Calib: Xe lamp- test')
+            new_rc_itime = test_exposure(rc_control, 5)            
+            logger.info("    New RC itime is %s" % new_rc_itime)
+            new_ifu_itime = test_exposure(ifu_control, 15)            
+            logger.info("    New IFU itime is %s" % new_ifu_itime)
+               
+            # now handle real exposures            
+            rc_control.setnumexposures(10)
+            rc_control.setobject('Calib: Xe lamp')
+            rc_control.setexposure(float(new_rc_itime))
+            rc_control.go()
+            time.sleep(1)
+            ifu_control.setobject('Calib: Xe lamp')
+            ifu_control.setnumexposures(3)
+            ifu_control.setexposure(int(new_ifu_itime))
+            ifu_control.go()
+            
+            while rc_control.isExposing() or ifu_control.isExposing():
+                time.sleep(1)
+                
+            rc_files = rc_control.getfilenames()
+            for fn in rc_files:
+                logger.info("%s -- rc Xe lamp" % fn)
+                
+        
+            ifu_files = ifu_control.getfilenames()
+            
+            for fn in ifu_files:
+                logger.info("%s -- ifu Xe lamp" % fn)
+                 
+            
+            #cmds.lamps_off()
+            time.sleep(10)
+            logger.info("--- Xe flats off ---")
+        
+        if self.calib_type == 'Hg':
+            logger.info("--- Taking Hg lamps with 15 s warmup ---")
+            cmds = GXN.Commands()
+            #cmds.lamps_on()
+            time.sleep(15)
+            
+            ifu_control.setobject('Calib: Hg lamp- test')
+            new_ifu_itime = test_exposure(ifu_control, 15)            
+            logger.info("    New IFU itime is %s" % new_ifu_itime)
+               
+            # now handle real exposures            
+            ifu_control.setobject('Calib: Hg lamp')
+            ifu_control.setnumexposures(3)
+            ifu_control.setexposure(int(new_ifu_itime))
+            ifu_control.go()
+            
+            while ifu_control.isExposing():
+                time.sleep(1)
+                            
+        
+            ifu_files = ifu_control.getfilenames()
+            
+            for fn in ifu_files:
+                logger.info("%s -- ifu Hg lamp" % fn)
+                 
+            
+            #cmds.lamps_off()
+            time.sleep(10)
+            logger.info("--- Hg flats off ---")
             
     def _go_stow_fired(self):
         if self.telescope_position == 'flat stow':

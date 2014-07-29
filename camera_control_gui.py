@@ -22,6 +22,8 @@ import GXN
 import Util
 from subprocess import check_output
 
+
+
 def ra_to_deg(ra):
     h,m,s = map(float,ra.split(":"))
     
@@ -91,6 +93,7 @@ class IncrementThread(Thread):
             time.sleep(1)
 
 class ExposureThread(Thread):
+    files = []
     
     def append_headers_by_trait(self, traits, hdrvalues_to_update):
         
@@ -107,7 +110,7 @@ class ExposureThread(Thread):
         
     def run(self):
         nexp = self.camera.num_exposures
-        filenames = []
+        self.files = []
         
         while self.camera.num_exposures > 0:
             
@@ -128,7 +131,7 @@ class ExposureThread(Thread):
                 return False
                 
             self.camera.filename = filename
-            filenames.append(filename)
+            self.files.append(filename)
             
             self.camera.state = "Updating Fits %s" % filename
             try:
@@ -263,7 +266,7 @@ class ExposureThread(Thread):
         self.camera.state = "Idle"
         if nexp > 1: play_sound("SystemExclamation")
     
-        return filenames
+        return True
         
 class Camera(HasTraits):
     '''Exposure Control'''  
@@ -332,6 +335,9 @@ class Camera(HasTraits):
     def setobject(self, val):
         self.object = val
         return self.object
+    
+    def getfilenames(self):
+        return self.exposure_thread.files
         
     def getfilename(self):
         return self.filename
@@ -382,9 +388,9 @@ class Camera(HasTraits):
             self.exposure_thread = ExposureThread()
             self.exposure_thread.camera = self
             self.exposure_thread.start()
-            return True
+            return self.exposure_thread.files
         
-        return True
+        return self.exposure_thread.exposure_thread
     
     def _go_button_fired(self):
         self.go()
@@ -446,6 +452,7 @@ def open_camera(name):
     c.connection = connection
     c.status_threads = Status
     if name == 'rc': c.readout = 2
+    if name == 'ifu': c.readout = 2
     
     c.setshutter("normal")
 
