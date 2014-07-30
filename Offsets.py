@@ -57,7 +57,7 @@ class Offsetter(HasTraits):
 
             Item('status'),
             Item('loadsend'),
-            Item('toifu'),
+            #Item('toifu'),
     
             show_labels        = True,
         ),

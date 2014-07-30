@@ -49,13 +49,13 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
     if positions == 'ABCD':
         nods = [( 0, 0),
                 ( 0, throw_distance),
-                (-throw_distance, 0),
+                ( throw_distance, 0),
                 ( 0,-throw_distance),
-                ( throw_distance, 0)]
+                ( -throw_distance, 0)]
     elif positions == 'AB':
         nods = [( 0, 0),
                 ( 0, throw_distance),
-                ( 0, -throw_distance)]
+                ( 0,-throw_distance)]
     else:
         nods = [(0,0)]
     

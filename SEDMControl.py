@@ -392,7 +392,45 @@ class SEDMControl(HasTraits):
             #cmds.lamps_off()
             time.sleep(10)
             logger.info("--- Xe flats off ---")
+      
+        if self.calib_type == 'twilight':
+            logger.info("--- Taking twilight flats ---")
+            cmds = GXN.Commands()
+            
+            ifu_control.setobject('Calib: twilight flat- test')
+            rc_control.setobject('Calib: twilight flat- test')
+            new_rc_itime = test_exposure(rc_control, 1)            
+            logger.info("    New RC itime is %s" % new_rc_itime)
+            new_ifu_itime = test_exposure(ifu_control, 15)            
+            logger.info("    New IFU itime is %s" % new_ifu_itime)
+               
+            # now handle real exposures            
+            rc_control.setnumexposures(3)
+            rc_control.setobject('Calib: twilight flat')
+            rc_control.setexposure(float(new_rc_itime))
+            rc_control.go()
+            time.sleep(1)
+            ifu_control.setobject('Calib: twilight flat')
+            ifu_control.setnumexposures(1)
+            ifu_control.setexposure(int(new_ifu_itime))
+            ifu_control.go()
+            
+            while rc_control.isExposing() or ifu_control.isExposing():
+                time.sleep(1)
+                
+            rc_files = rc_control.getfilenames()
+            for fn in rc_files:
+                logger.info("%s -- rc lamp" % fn)
+                
         
+            ifu_files = ifu_control.getfilenames()
+            
+            for fn in ifu_files:
+                logger.info("%s -- ifu lamp" % fn)
+                 
+            logger.info("--- end of twilight flat ---")
+            
+                
         if self.calib_type == 'Hg':
             logger.info("--- Taking Hg lamps with 15 s warmup ---")
             cmds = GXN.Commands()
@@ -422,7 +460,8 @@ class SEDMControl(HasTraits):
             #cmds.lamps_off()
             time.sleep(10)
             logger.info("--- Hg flats off ---")
-            
+      
+              
     def _go_stow_fired(self):
         if self.telescope_position == 'flat stow':
             logger.info("--- Flat stow position ")
@@ -430,7 +469,7 @@ class SEDMControl(HasTraits):
             cmds.stow_flats()
             
         elif self.telescope_position == 'twilight stow':
-            logge.info("--- Twilight stow position ")
+            logger.info("--- Twilight stow position ")
             cmds = GXN.Commands()
             cmds.stow_flats()
         

@@ -121,7 +121,8 @@ def analyze(files, xslice=slice(1300,1600), yslice=slice(1400,1800)):
         
         pl.figure()
         pl.imshow(im)
-
+        
+        print FF[0].header['object']
         pos= FF[0].header['object'].split(":")[-1]
         print pos
         fpos.append(float(pos))
