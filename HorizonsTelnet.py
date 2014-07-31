@@ -27,7 +27,8 @@ def find_neareast(obj_id=None, path='.'):
     deltas = np.array(deltas)
     
     ix = np.argmin(np.abs(deltas))
-    print results[ix].RA
+    return (results[ix].RA.hour, results[ix].Dec.deg, results[ix].dRA, 
+        results[ix].dDec, results[ix].apmag)
 
 def return_ephem(obj_id=None, path='.'):
 
@@ -58,7 +59,7 @@ def return_ephem(obj_id=None, path='.'):
             dRA = float(line[47:55])
             dDec = float(line[56:65])
             airmass = line[65:74]
-            apmag = float(line[75:82])
+            apmag = float(line[74:82])
             
 
             results.append(eline(etime, RA, Dec, dRA, dDec, airmass, apmag))

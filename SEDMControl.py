@@ -30,12 +30,17 @@ from subprocess import check_output
 from astropy.table import Table
 import Options
 import xmlrpclib 
-import Secfocus, Fourshot, Nodder
+import Secfocus, SpecFocus, Fourshot, Nodder
 
 
 import Util
 
 import pyfits as pf
+
+import HorizonsTelnet as HT
+reload(HT)
+reload(Secfocus)
+reload(SpecFocus)
 
 
 
@@ -230,8 +235,8 @@ class SEDMControl(HasTraits):
         t = Table.read(Options.targets_outfile, format='ascii.ipac')[0]
 
 
-        if t['is_horizon']:
-            print "DO SOMETHING"
+
+        
         cmds = GXN.Commands()           
         self.comment = str(t['comment'])
         self.location = "OTW: %s" % str(t['name'])
@@ -241,7 +246,25 @@ class SEDMControl(HasTraits):
         dec= float(t['Dec'])
         nm = str(t['name'])
         epoch = float(t['epoch'])
-        cmds.coords(ra, dec, epoch, 0,0,0, name=nm)
+        dRA = 0
+        dDec = 0
+        flag = 0
+        
+        if nm.startswith("HORIZON"):
+            nm = t['name'].split('-')[1]
+            time_now = time.gmtime()
+            sd = "%i-%i-%i 00:00" % (time_now.tm_year, time_now.tm_mon, time_now.tm_mday)
+            ed = "%i-%i-%i 23:59" % (time_now.tm_year, time_now.tm_mon, time_now.tm_mday)
+            
+            HT.write_ephemeris(int(nm), start_date=sd, end_date=ed)
+            ra, dec, dRA, dDec, apmag = HT.find_neareast(obj_id=nm)
+            print dRA, dDec
+            self.comment +=  " | V ~ %s" % (apmag)
+            nm = nm + " (NS)"
+            epoch = 2000.0
+            flag = 1
+
+        cmds.coords(ra, dec, epoch, dRA, dDec, flag, name=nm)
         cmds.go()
 
         self.location = "%s" % nm
@@ -270,17 +293,21 @@ class SEDMControl(HasTraits):
     def _go_focus_fired(self):
         ''' Secondary mirror focus requested'''
         rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
+        ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
         
         mn,mx,df = map(float,self.focus_range.split(","))
         logger.info("Starting focus over %s,%s,%s" % (mn,mx,df))
         positions = np.arange(mn,mx,df)
-        files = Secfocus.secfocus(rc_control, positions)
-        print files
+        rfiles, ifiles = Secfocus.focus_loop(rc_control, positions, ifu_control=ifu_control)
+        print rfiles
         
-        for f in files:
+        for f in rfiles:
+            logger.info("%s -- focus loop" % f)
+        for f in ifiles:
             logger.info("%s -- focus loop" % f)
             
-        Secfocus.analyze(files)
+        Secfocus.analyze(rfiles)
+        SpecFocus.analyze(ifiles)
 
     def _go_calib_fired(self):
         self.handle_calib('ifu')

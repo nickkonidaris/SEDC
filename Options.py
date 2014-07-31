@@ -11,8 +11,8 @@ obs_log_path = "c:/sedm/logs/"
 
 # Targets.py
 # These options have to do with the target list
-targets_outfile = "output.tbl"
-targets_infile = "/users/npk/documents/p60_control/lines.txt"
+targets_outfile = "S:/output.tbl"
+targets_infile = "s:/targets.txt"
 
 # Servers
 global_port = 6565

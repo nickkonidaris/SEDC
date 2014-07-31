@@ -49,7 +49,7 @@ def focus_loop(stage_control, ifu_control, focus_pos=np.arange(3.0,3.7,.1)):
     return files
 
 
-def analyize_files(files):
+def analyze(files):
     '''Measures a focus metric on the list of files 
     '''    
     focuss = []
@@ -100,7 +100,7 @@ def analyize_files(files):
         
 
     pl.ion()
-    pl.figure(1)
+    pl.figure(100)
     pl.clf()
     pl.plot(focuss, metric, 'o')
     pl.show()
