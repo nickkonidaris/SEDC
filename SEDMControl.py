@@ -229,6 +229,9 @@ class SEDMControl(HasTraits):
         ''' Go to next field button fired '''
         t = Table.read(Options.targets_outfile, format='ascii.ipac')[0]
 
+
+        if t['is_horizon']:
+            print "DO SOMETHING"
         cmds = GXN.Commands()           
         self.comment = str(t['comment'])
         self.location = "OTW: %s" % str(t['name'])

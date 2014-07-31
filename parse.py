@@ -17,18 +17,31 @@ def parse_file2(fname):
     decs = []
     epochs = []
     comments = []
+    is_horizon = []
     for line in lines:
         if line[0] == '#': continue
         sp = line.split()
-        if len(sp) < 8:
+        if line.startswith('HORIZON-'):
+            name = line.split()[0]
+            ra = (0,0,0)
+            dec = (0,0,0)
+            epoch = 2000.0
+            comment = ["# !@~", line.split()[-1]]
+            
+            is_horizon.append(True)
+
+        elif len(sp) < 8:
             continue
+        else:
 
-        name = sp[0]
-        ra = sp[1:4]
-        dec = sp[4:7]
-        epoch = sp[7]
-        comment = sp[8:]
+            name = sp[0]
+            ra = sp[1:4]
+            dec = sp[4:7]
+            epoch = sp[7]
+            comment = sp[8:]
+            is_horizon.append(False)
 
+            
         #print sp
         ra = Angle("%sh%sm%ss" % (ra[0], ra[1], ra[2]))
         dec = Angle("%sd%sm%ss" % (dec[0], dec[1], dec[2]))
@@ -38,10 +51,10 @@ def parse_file2(fname):
         decs.append(dec.degree)
         epochs.append(epoch)
         comments.append(comment)
-    
-    t = Table([names, ras, decs, epochs, comments], 
-        names=('name', 'ra', 'dec', 'epoch', 'comment'))
 
+
+    t = Table([names, ras, decs, epochs, comments,is_horizon],
+        names=('name','ra','dec','epoch','comment','is_horizon'))
     return t
 
 def parse_file(fname):
@@ -70,3 +83,5 @@ def convert_file(data):
 
 #data = parse_file2("lines.txt")
 
+if __name__ == '__main__':
+    print parse_file2("/users/npk/documents/p60_control/lines.txt")[0]

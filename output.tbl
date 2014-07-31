@@ -1,0 +1,5 @@
+|    name|      RA|      Dec| epoch|            comment|is_horizon|
+|    char|  double|   double|double|               char|      char|
+|        |       h|      deg|    yr|                   |          |
+|    null|    null|     null|  null|               null|      null|
+ SN2014ao 8.575922 -2.543361 2000.0  16.4 mag (Ia +20?)      False 

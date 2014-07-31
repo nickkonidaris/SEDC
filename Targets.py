@@ -5,6 +5,7 @@ from astropy.table import Table
 
 import Options
 
+reload(parse)
 # First create application class
  
  
@@ -63,8 +64,9 @@ class Application(Frame):
         pos,comment = value.split("#")
         name,ra,dec,epoch= re.split(" +", pos.lstrip().rstrip())
         
-        outvals = Table([[name],[float(ra)],[float(dec)],[float(epoch)],[comment]],
-            names=('name','RA','Dec','epoch','comment'))
+        is_hor = "!@~" in comment
+        outvals = Table([[name],[float(ra)],[float(dec)],[float(epoch)],[comment], [is_hor]],
+            names=('name','RA','Dec','epoch','comment','is_horizon'))
         
         outvals['RA'].unit = 'hour'
         outvals['Dec'].unit = 'degree'
@@ -81,7 +83,12 @@ class Application(Frame):
         self.data = []
         for i in xrange(len(self.table)):
             t = self.table[i]
-            self.data.append("%18s %9.6f %+10.6f %s %s" % 
+            
+            if t['is_horizon']:
+                self.data.append("%18s %9.6f %+10.6f %s %s" % 
+                    (t['name'], t['ra'], t['dec'], t['epoch'], " ".join(t['comment'])))
+            else:
+                self.data.append("%18s %9.6f %+10.6f %s %s" % 
                     (t['name'], t['ra'], t['dec'], t['epoch'], " ".join(t['comment'])))
 
         for i in xrange(len(self.data)):
