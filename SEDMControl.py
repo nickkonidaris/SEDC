@@ -8,42 +8,25 @@ logging.basicConfig(level=logging.INFO,
 
 
 from traits.api import *
-from traitsui.api import View, Item, Group,Handler
-
-from threading import Thread, Timer
+from traitsui.api import View, Item, Group
 
 import numpy as np
 import pyfits as pf
-import os
-import sys
-from httplib import CannotSendRequest
+
 import time
-import tempfile
 import xmlrpclib
 
-import psutil
-import subprocess as SP
 
 import GXN
 import Util
-from subprocess import check_output
 from astropy.table import Table
 import Options
-import xmlrpclib 
 import Secfocus, SpecFocus, Fourshot, Nodder
-
-
-import Util
-
-import pyfits as pf
 
 import HorizonsTelnet as HT
 reload(HT)
 reload(Secfocus)
 reload(SpecFocus)
-
-
-
 reload(Secfocus)
 reload(Options)
 reload(Nodder)
@@ -123,7 +106,7 @@ class SEDMControl(HasTraits):
     focus_range = String("13.8, 14.1, 0.1")
     
     # Calibration type
-    calib_type = Enum(["dome", "twilight", "Hg", "Ne", "Xe", "dark", "bias"])
+    calib_type = Enum(["dome", "twilight", "Hg", "Ne", "Xe", "LED", "dark", "bias"])
     
     # Telescope positions
     telescope_position = Enum(['day stow', 'flat stow', 'twilight stow', 'open', 'close'])
@@ -256,11 +239,11 @@ class SEDMControl(HasTraits):
             sd = "%i-%i-%i 00:00" % (time_now.tm_year, time_now.tm_mon, time_now.tm_mday)
             ed = "%i-%i-%i 23:59" % (time_now.tm_year, time_now.tm_mon, time_now.tm_mday)
             
-            HT.write_ephemeris(int(nm), start_date=sd, end_date=ed)
-            ra, dec, dRA, dDec, apmag = HT.find_neareast(obj_id=nm)
+            HT.write_ephemeris(nm, start_date=sd, end_date=ed)
+            ra, dec, dRA, dDec, apmag, bodyname = HT.find_neareast(obj_id=nm)
             print dRA, dDec
             self.comment +=  " | V ~ %s" % (apmag)
-            nm = nm + " (NS)"
+            nm = nm + " %s (NS)" % bodyname
             epoch = 2000.0
             flag = 1
 
@@ -316,7 +299,6 @@ class SEDMControl(HasTraits):
     def handle_calib(self, channel):
         
         cmds = GXN.Commands()
-        
         rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % 
             Options.rc_port)
         ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % 
@@ -331,7 +313,7 @@ class SEDMControl(HasTraits):
             rc_control.setexposure(0)
             rc_files = rc_control.go()
             ifu_control.setshutter('closed')
-            ifu_control.setnumexposures(30)
+            ifu_control.setnumexposures(10)
             ifu_control.setexposure(0)
             ifu_control.setobject('Calib: bias')
             ifu_files = ifu_control.go()        
@@ -341,7 +323,7 @@ class SEDMControl(HasTraits):
         
         if self.calib_type == 'dome':
             logger.info("--- Taking dome lamps with 5 s warmup ---")
-            cmds = GXN.Commands()
+
             cmds.lamps_on()
             time.sleep(5)
             
@@ -359,7 +341,7 @@ class SEDMControl(HasTraits):
             rc_control.go()
             time.sleep(1)
             ifu_control.setobject('Calib: dome lamp')
-            ifu_control.setnumexposures(3)
+            ifu_control.setnumexposures(5)
             ifu_control.setexposure(int(new_ifu_itime))
             ifu_control.go()
             
@@ -401,7 +383,7 @@ class SEDMControl(HasTraits):
             rc_control.go()
             time.sleep(1)
             ifu_control.setobject('Calib: Xe lamp')
-            ifu_control.setnumexposures(3)
+            ifu_control.setnumexposures(5)
             ifu_control.setexposure(int(new_ifu_itime))
             ifu_control.go()
             
@@ -422,6 +404,49 @@ class SEDMControl(HasTraits):
             #cmds.lamps_off()
             time.sleep(10)
             logger.info("--- Xe flats off ---")
+      
+        if self.calib_type == 'LED':
+            logger.info("--- Taking LED lamps with 15 s warmup ---")
+            cmds = GXN.Commands()
+            #cmds.lamps_on()
+            time.sleep(15)
+            
+            ifu_control.setobject('Calib: LED lamp- test')
+            rc_control.setobject('Calib: LED lamp- test')
+            new_rc_itime = test_exposure(rc_control, 5)            
+            logger.info("    New RC itime is %s" % new_rc_itime)
+            new_ifu_itime = test_exposure(ifu_control, 15)            
+            logger.info("    New IFU itime is %s" % new_ifu_itime)
+               
+            # now handle real exposures            
+            rc_control.setnumexposures(10)
+            rc_control.setobject('Calib: LED lamp')
+            rc_control.setexposure(float(new_rc_itime))
+            rc_control.go()
+            time.sleep(1)
+            ifu_control.setobject('Calib: LED lamp')
+            ifu_control.setnumexposures(10)
+            ifu_control.setexposure(int(new_ifu_itime))
+            ifu_control.go()
+            
+            while rc_control.isExposing() or ifu_control.isExposing():
+                time.sleep(1)
+                
+            rc_files = rc_control.getfilenames()
+            for fn in rc_files:
+                logger.info("%s -- rc LED lamp" % fn)
+                
+        
+            ifu_files = ifu_control.getfilenames()
+            
+            for fn in ifu_files:
+                logger.info("%s -- ifu LED lamp" % fn)
+                 
+            
+            #cmds.lamps_off()
+            time.sleep(10)
+            logger.info("--- LED flats off ---")
+
       
         if self.calib_type == 'twilight':
             logger.info("--- Taking twilight flats ---")

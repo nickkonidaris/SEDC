@@ -14,7 +14,7 @@ def st_to_num(st):
 
 def find_neareast(obj_id=None, path='.'):
 
-    results = return_ephem(obj_id, path)
+    results, bodyname = return_ephem(obj_id, path)
         
     now = st_to_num(time.gmtime())    
 
@@ -27,8 +27,10 @@ def find_neareast(obj_id=None, path='.'):
     deltas = np.array(deltas)
     
     ix = np.argmin(np.abs(deltas))
-    return (results[ix].RA.hour, results[ix].Dec.deg, results[ix].dRA, 
-        results[ix].dDec, results[ix].apmag)
+    
+    eline = namedtuple('position', 'RA Dec dRA dDec apmag bodyname')    
+    return eline(results[ix].RA.hour, results[ix].Dec.deg, results[ix].dRA, 
+        results[ix].dDec, results[ix].apmag, bodyname)
 
 def return_ephem(obj_id=None, path='.'):
 
@@ -44,6 +46,8 @@ def return_ephem(obj_id=None, path='.'):
     results = []
     in_data = False
     for line in lines:
+        if line.startswith("Target body name:"):
+            bodyname = line[18:40]
         if line.startswith("$$SOE"): 
             in_data=True        
             continue
@@ -51,21 +55,20 @@ def return_ephem(obj_id=None, path='.'):
             in_data=False
             continue
         
-        if in_data: 
-        
+        if in_data:         
             etime  = time.strptime(line[0:18], " %Y-%b-%d %H:%M")
             RA = Angle("%s hour" % line[23:35])
             Dec = Angle("%s deg" % line[35:47])
             dRA = float(line[47:55])
             dDec = float(line[56:65])
             airmass = line[65:74]
-            apmag = float(line[74:82])
+            apmag = float(line[74:81])
             
 
             results.append(eline(etime, RA, Dec, dRA, dDec, airmass, apmag))
             
 
-    return results
+    return results, bodyname
     
 
 def write_ephemeris(obj_id=None, start_date=None, end_date=None, path='.'):
@@ -80,7 +83,7 @@ def write_ephemeris(obj_id=None, start_date=None, end_date=None, path='.'):
     t = telnetlib.Telnet()
     t.open('horizons.jpl.nasa.gov', 6775)
     
-    expect = ( ( r'Horizons>', '%i \n' % obj_id),
+    expect = ( ( r'Horizons>', '%s \n' % obj_id),
             ( r'Continue.*:', 'y\n' ),
             ( r'Select.*E.phemeris.*:', 'E\n'),
             ( r'Observe.*:', 'o\n' ),
@@ -95,7 +98,7 @@ def write_ephemeris(obj_id=None, start_date=None, end_date=None, path='.'):
             ( r'Select\.\.\. .A.gain.* :', 'X\n' )
     )
     
-    with open('%i.txt' % obj_id, 'w') as fp:
+    with open('%s.txt' % obj_id, 'w') as fp:
         while True:
             try:
                 answer = t.expect(list(i[0] for i in expect), 10)
@@ -106,6 +109,6 @@ def write_ephemeris(obj_id=None, start_date=None, end_date=None, path='.'):
             t.write(expect[answer[0]][1])
 
 if __name__ == '__main__':
-    #write_ephemeris(obj_id=3028, start_date='2014-Jul-30 00:00',
-     #   end_date='2014-Jul-31 23:00')
-    find_neareast(obj_id=3028)
+    write_ephemeris(obj_id=903991, start_date='2014-Jul-30 00:00',
+        end_date='2014-Jul-31 23:00')
+    obj = find_neareast(obj_id=903991)

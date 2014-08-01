@@ -54,8 +54,8 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
                 ( -throw_distance, 0)]
     elif positions == 'AB':
         nods = [( 0, 0),
-                ( 0, throw_distance),
-                ( 0,-throw_distance)]
+                ( throw_distance,  0),
+                (-throw_distance,  0)]
     else:
         nods = [(0,0)]
     
@@ -125,9 +125,17 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
 
 
 
+    ifu_readout_speed = ifu_control.getall()[7]
+    ifu_exptime = ifu_control.getall()[10]
+    
+    if ifu_exptime > 600: ifu_control.setreadout(0.1)
+    if ifu_exptime < 121: ifu_control.setreadout(2.0)
+    
     T = Thread(target=helper)
     T.start()
     T.join()
+    
+    ifu_control.setreadout(ifu_readout_speed)
     
     print "Finished"
     return (ifu_files, rc_files)

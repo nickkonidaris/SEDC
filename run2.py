@@ -10,16 +10,16 @@ and connects the servers together
 nick.konidaris@gmail.com
 
 '''
-
+import logging
+logger = logging.getLogger("SEDMControl")
+logging.basicConfig(level=logging.INFO,
+    filename="s:/logs/obslog.txt",
+    filemode="a",
+    format = "%(message)s    [%(asctime)-15s] %(name)s")
 import subprocess as s
 import xmlrpclib
-from multiprocessing import Process, Event
-import Queue
-from threading import Thread
-import numpy as np
+
 import time as t
-import sched
-import math
 import GXN
 
 import Focus
@@ -35,7 +35,7 @@ reload(gui)
 reload(stage_gui)
 reload(Focus)
 reload(Secfocus)
-
+logger = logging.getLogger("SEDMControl")
 use_stage = True
 
 pids = []
