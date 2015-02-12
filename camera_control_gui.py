@@ -295,7 +295,7 @@ class Camera(HasTraits):
         desc="the amplifier index",
         label = 'amp')
     
-    shutter = Enum('normal', 'closed')
+    shutter = Enum('normal', 'closed', 'open')
     
     xpa_class = String()
     
