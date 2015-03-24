@@ -35,6 +35,7 @@ reload(gui)
 reload(stage_gui)
 reload(Focus)
 reload(Secfocus)
+
 logger = logging.getLogger("SEDMControl")
 use_stage = True
 

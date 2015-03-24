@@ -102,6 +102,10 @@ class SEDMControl(HasTraits):
     # Dithering pattern
     pattern = Enum(['ABCD', 'A', 'AB'])
     
+    # Throws
+    throw_x_as = Float(0)
+    throw_y_as = Float(7)
+    
     # Focus controls
     focus_range = String("13.8, 14.1, 0.1")
     
@@ -139,6 +143,8 @@ class SEDMControl(HasTraits):
             Item(name="spec_exp_time"),
             Item(name="n_spec"),
             Item(name="pattern"),
+            Item(name="throw_x_as"),
+            Item(name="throw_y_as"),
             Item(name="take_spectra_button"),
             Item("_"),
             Item(name="go_conf"),
@@ -182,10 +188,13 @@ class SEDMControl(HasTraits):
         rc_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.rc_port)
         ifu_control = xmlrpclib.ServerProxy("http://127.0.0.1:%i" % Options.ifu_port)
 
+        print self.location, self.pattern
         
         files = Nodder.nodder(self.location, rc_control, ifu_control, 
             self.spec_exp_time,
-            positions=self.pattern)
+            positions=self.pattern, 
+            throw_distancex=self.throw_x_as,
+            throw_distancey=self.throw_y_as)
         
         print files, "------ HERE"
         for rc in files[1]:

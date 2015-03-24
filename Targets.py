@@ -45,6 +45,7 @@ class Application(Frame):
         ''' Reload from file in current directory '''
 
         self.table = parse.parse_file2(Options.targets_infile)
+        print self.table
         self.update_list()
          
         
@@ -97,10 +98,12 @@ class Application(Frame):
                 self.lbox.insert(i, item)
  
  
-root = Tk()
-root.geometry("850x400")
-root.title('SED Machine Next Target')
-app = Application(master=root)
-print 'Starting mainloop()'
-app.mainloop()
+if __name__ == '__main__':
+    root = Tk()
+    root.geometry("850x400")
+    root.title('SED Machine Next Target')
+    app = Application(master=root)
+    app.reload_list()
+    print 'Starting mainloop()'
+    app.mainloop()
 

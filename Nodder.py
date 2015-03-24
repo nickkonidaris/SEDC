@@ -20,7 +20,7 @@ abort_nod = False
 files = []
 
 def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
-    throw_distance = -7):
+    throw_distancex = -7, throw_distancey = 0):
     global abort_nod, rc_files, ifu_files
     
     ''' nodder -> [filenames]
@@ -54,8 +54,8 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
                 ( -throw_distance, 0)]
     elif positions == 'AB':
         nods = [( 0, 0),
-                ( throw_distance,  0),
-                (-throw_distance,  0)]
+                ( throw_distancex,  throw_distancey),
+                (-throw_distancex,  -throw_distancey)]
     else:
         nods = [(0,0)]
     
