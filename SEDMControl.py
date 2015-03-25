@@ -53,7 +53,7 @@ def evaluate_file_for_cnts(filename):
         return exptime
     
     else:
-        return exptime * 12000./val
+        return exptime * 20000./val
         
     
 def test_exposure(controller, itime):
@@ -110,7 +110,7 @@ class SEDMControl(HasTraits):
     focus_range = String("13.8, 14.1, 0.1")
     
     # Calibration type
-    calib_type = Enum(["dome", "twilight", "Hg", "Ne", "Xe", "LED", "dark", "bias"])
+    calib_type = Enum(["dome", "twilight", "Hg", "Cd", "Ne", "Xe", "LED", "dark", "bias"])
     
     # Telescope positions
     telescope_position = Enum(['day stow', 'flat stow', 'twilight stow', 'open', 'close'])
@@ -331,10 +331,10 @@ class SEDMControl(HasTraits):
             logger.info(ifu_files)
         
         if self.calib_type == 'dome':
-            logger.info("--- Taking dome lamps with 5 s warmup ---")
+            logger.info("--- Taking dome lamps with 120 s warmup ---")
 
             cmds.lamps_on()
-            time.sleep(5)
+            time.sleep(120)
             
             ifu_control.setobject('Calib: dome lamp- test')
             rc_control.setobject('Calib: dome lamp- test')
@@ -524,7 +524,37 @@ class SEDMControl(HasTraits):
             #cmds.lamps_off()
             time.sleep(10)
             logger.info("--- Hg flats off ---")
-      
+
+        # Cadmium
+        if self.calib_type == 'Cd':
+            logger.info("--- Taking Cd lamps with 15 s warmup ---")
+            cmds = GXN.Commands()
+            #cmds.lamps_on()
+            time.sleep(15)
+            
+            ifu_control.setobject('Calib: Cd lamp- test')
+            new_ifu_itime = test_exposure(ifu_control, 15)            
+            logger.info("    New IFU itime is %s" % new_ifu_itime)
+               
+            # now handle real exposures            
+            ifu_control.setobject('Calib: Cd lamp')
+            ifu_control.setnumexposures(3)
+            ifu_control.setexposure(int(new_ifu_itime))
+            ifu_control.go()
+            
+            while ifu_control.isExposing():
+                time.sleep(1)
+                            
+        
+            ifu_files = ifu_control.getfilenames()
+            
+            for fn in ifu_files:
+                logger.info("%s -- ifu Hg lamp" % fn)
+                 
+            
+            #cmds.lamps_off()
+            time.sleep(10)
+            logger.info("--- Hg flats off ---")
               
     def _go_stow_fired(self):
         if self.telescope_position == 'flat stow':
