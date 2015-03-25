@@ -109,7 +109,7 @@ def focus_loop(rc_control, focus_pos = None, ifu_control=None):
 
 abort_4 = False
 
-def analyze(files, xslice=slice(1300,1600), yslice=slice(1400,1800)):
+def analyze(files, xslice=slice(1200,1600), yslice=slice(1200,1800)):
     pl.ion()
     
     fpos = []
