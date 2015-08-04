@@ -128,7 +128,7 @@ def nodder(target_name, rc_control, ifu_control, exp_time, positions = None,
     ifu_readout_speed = ifu_control.getall()[7]
     ifu_exptime = ifu_control.getall()[10]
     
-    if ifu_exptime > 200: ifu_control.setreadout(0.1)
+    if ifu_exptime > 120: ifu_control.setreadout(0.1)
     if ifu_exptime < 61: ifu_control.setreadout(2.0)
     
     T = Thread(target=helper)
