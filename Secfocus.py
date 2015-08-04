@@ -96,9 +96,19 @@ def focus_loop(rc_control, focus_pos = None, ifu_control=None):
         if ifu_control is not None:
             ifu_control.setobject(ifu_name)
     
+    if ifu_control is not None:
+        ifu_readout_speed = ifu_control.getall()[7]
+    rc_readout_speed = rc_control.getall()[7]
+    ifu_control.setreadout(2.0)
+    rc_control.setreadout(2.0)
+    
     T = Thread(target=helper)
     T.start()
     T.join()
+    
+    if ifu_control is not None:
+        ifu_control.setreadout(ifu_readout_speed)
+    rc_control.setreadout(rc_readout_speed)
     
     if ifu_control is None:
         return files[1:]
