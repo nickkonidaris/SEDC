@@ -102,6 +102,7 @@ def analyze(files):
     pl.ion()
     pl.figure(100)
     pl.clf()
+    pl.title("SpecFocus")
     pl.plot(focuss, metric, 'o')
     pl.show()
     return  focuss, metric, q1, q2, q3, q4, mns
