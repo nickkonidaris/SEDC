@@ -203,6 +203,7 @@ class ExposureThread(Thread):
             
             try:
                 if self.camera.name == 'rc':
+                    hdr.update("DATASEC", "[1100:2046,1100:2046]", "r band")
                     hdr.update("CRPIX1", 1293, "Center pixel position")
                     hdr.update("CRPIX2", 1280, "")
                     hdr.update("CDELT1", -0.00010944, "0.394 as")
@@ -231,7 +232,7 @@ class ExposureThread(Thread):
             new_hdu = pf.PrimaryHDU(np.uint16(hdus[0].data), header=hdr)
             hdus.close()
 
-            tempname = "c:/users/sedm/appdata/local/temp/sedm_temp.fits"
+            tempname = "c:/users/sedm/appdata/local/temp/sedm_%s_temp.fits" % (self.camera.name)
             origname = filename
 
             

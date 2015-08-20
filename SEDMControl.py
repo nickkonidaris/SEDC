@@ -100,7 +100,7 @@ class SEDMControl(HasTraits):
     n_spec = Int(1)
     
     # Dithering pattern
-    pattern = Enum(['ABCD', 'A', 'AB'])
+    pattern = Enum(['AB', 'A', 'ABCD'])
     
     # Throws
     throw_x_as = Float(0)

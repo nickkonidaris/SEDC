@@ -3,3 +3,5 @@ global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=
 image
 circle(1293, 1280, 10) # color=yellow select=1
 circle(1293, 1280, 3) # color=yellow select=1
+
+box(1289.7, 1275.6, 68.5, 68.5, 0.11226627) # color=yellow edit=0 move=0 rotate=0 background

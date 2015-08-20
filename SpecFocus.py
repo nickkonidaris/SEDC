@@ -6,13 +6,24 @@ import numpy as np
 
 
 def focus_loop(stage_control, ifu_control, focus_pos=np.arange(3.0,3.7,.1)):
+    ''' loop over focus positions by moving stage_control and taking images with ifu_control.
+    
+    Analyze for best focus as
+    res = SpecFocus.focus_loop()
+    SpecFocus.analyze(res)'''
     
     name = ifu_control.getall()[1] # 2nd element is object name
     
     def waitfor():
         t.sleep(3)
+        
         while not stage_control.get_is_ready():
+            prev = stage_control.get_location()
             t.sleep(.2)
+            new = stage_control.get_location()
+            if np.abs(new - prev) < 0.001: 
+                print "WARNING *** COLLISION LIKELY ****"
+                return	
     
     print "Starting focus loop"
     stage_control.request_focus(True)
@@ -71,7 +82,7 @@ def analyze(files):
             focus = header["object"]
             print focus
             focus = float(focus.split(":")[-1])
-        except: continue
+        except KeyError: continue
         
         focuss.append(focus)
         sort = np.sort(data.flatten())

@@ -117,7 +117,7 @@ def focus_loop(rc_control, focus_pos = None, ifu_control=None):
     
 
 
-abort_4 = False
+abort_4 = False	
 
 def analyze(files, xslice=slice(1200,1600), yslice=slice(1200,1800)):
     pl.ion()
@@ -129,19 +129,19 @@ def analyze(files, xslice=slice(1200,1600), yslice=slice(1200,1800)):
         FF = pf.open(fname)
         im = FF[0].data[xslice, yslice]
         
-        pl.figure()
-        pl.imshow(im)
-        
-        print FF[0].header['object']
-        pos= FF[0].header['object'].split(":")[-1]
-        print pos
-        fpos.append(float(pos))
-        res.append(np.max(im) - np.min(im))
+        try:
+            print FF[0].header['object']
+            pos= FF[0].header['object'].split(":")[-1]
+            print pos
+            fpos.append(float(pos))
+            res.append(np.max(im) - np.min(im))
+        except KeyError:
+            continue
     
     pl.figure(1)
     pl.clf()
     pl.plot(fpos,res,'o')
-        
+    pl.title("RC Focus")
     pl.show()
     
     
